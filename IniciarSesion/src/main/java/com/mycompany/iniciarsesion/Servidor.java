@@ -1,4 +1,3 @@
-
 package com.mycompany.iniciarsesion;
 
 import java.io.BufferedReader;
@@ -11,32 +10,34 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.Date;
-
+import java.util.List;
 
 public class Servidor {
+
     private static final int PUERTO = 5000;
     private static final String ARCHIVO_USUARIOS = "usuarios.txt";
     private static final File MENSAJES_DIR = new File("mensajes");
 
     public static void main(String[] args) throws IOException {
-        
-        try (ServerSocket serverSocket = new ServerSocket(PUERTO)){
-            System.out.println("Servidor iniciado en el puerto "+PUERTO);
-            
-            
-            while(true){
+
+        try (ServerSocket serverSocket = new ServerSocket(PUERTO)) {
+            System.out.println("Servidor iniciado en el puerto " + PUERTO);
+
+            while (true) {
                 Socket socket = serverSocket.accept();
                 System.out.println("Cliente conectado");
                 new Thread(new ManejadorCliente(socket)).start();
             }
-        } catch (IOException e){
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
-    
+
     // AQUI CREO UNA CLASE PARA MANEJAR A CADA CLIENTE
     private static class ManejadorCliente implements Runnable {
+
         private Socket socket;
 
         public ManejadorCliente(Socket socket) {
@@ -52,9 +53,11 @@ public class Servidor {
                 salida.println("¿Quieres iniciar sesión (1) o registrarte (2)?");
                 String opcion = entrada.readLine();
 
+                String usuario = null;
+
                 if ("2".equals(opcion)) {
                     salida.println("Introduce un nombre de usuario:");
-                    String usuario = entrada.readLine();
+                    usuario = entrada.readLine();
 
                     salida.println("Introduce una contraseña:");
                     String contrasena = entrada.readLine();
@@ -64,13 +67,14 @@ public class Servidor {
 
                 } else if ("1".equals(opcion)) {
                     salida.println("Introduce tu usuario:");
-                    String usuario = entrada.readLine();
+                    usuario = entrada.readLine();
 
                     salida.println("Introduce tu contraseña:");
                     String contrasena = entrada.readLine();
 
                     if (validarUsuario(usuario, contrasena)) {
                         salida.println("Inicio de sesión exitoso. Bienvenido " + usuario + "!");
+                        mostrarMenu(usuario, entrada, salida);
                     } else {
                         salida.println("Usuario o contraseña incorrectos.");
                     }
@@ -82,6 +86,40 @@ public class Servidor {
                 e.printStackTrace();
             }
         }
+          private void mostrarMenu(String usuario, BufferedReader entrada, PrintWriter salida) throws IOException {
+            boolean continuar = true;
+            while (continuar) {
+                salida.println("\n=== MENU PRINCIPAL ===");
+                salida.println("1) Ver bandeja de entrada");
+                salida.println("2) Salir");
+                salida.println("Elige opcion:");
+
+                String opcion = entrada.readLine();
+
+                switch (opcion) {
+                    case "1":
+                        List<String> mensajes = leerInbox(usuario);
+                        if (mensajes.isEmpty()) {
+                            salida.println("No tienes mensajes nuevos.");
+                        } else {
+                            salida.println("Tus mensajes:");
+                            for (String msg : mensajes) {
+                                salida.println(msg);
+                            }
+                            vaciarInbox(usuario);
+                        }
+                        break;
+                    case "2":
+                        salida.println("Adios!");
+                        continuar = false;
+                        break;
+                    default:
+                        salida.println("Opcion no valida.");
+                }
+            }
+            socket.close();
+        }
+
 
         private void guardarUsuario(String usuario, String contrasena) {
             try (FileWriter fw = new FileWriter(ARCHIVO_USUARIOS, true);
@@ -92,7 +130,6 @@ public class Servidor {
                 e.printStackTrace();
             }
         }
-
         private boolean validarUsuario(String usuario, String contrasena) {
             try (BufferedReader br = new BufferedReader(new FileReader(ARCHIVO_USUARIOS))) {
                 String linea;
@@ -107,9 +144,7 @@ public class Servidor {
             }
             return false;
         }
-        private static File archivoInbox(String usuario) {
-    return new File(MENSAJES_DIR, usuario + ".txt");
-}
+
 
 private static synchronized void enviarMensajeASingle(String usuario, String texto) {
     try (BufferedWriter bw = new BufferedWriter(new FileWriter(archivoInbox(usuario), true))) {
@@ -120,5 +155,42 @@ private static synchronized void enviarMensajeASingle(String usuario, String tex
     }
 }
         
+
+         private static File archivoInbox(String usuario) {
+        return new File(MENSAJES_DIR, usuario + ".txt");
+
     }
+
+    private static List<String> leerInbox(String usuario) {
+        List<String> msgs = new ArrayList<>();
+        File f = archivoInbox(usuario);
+        if (!f.exists()) {
+            return msgs;
+        }
+        try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+            String l;
+            while ((l = br.readLine()) != null) {
+                msgs.add(l);
+            }
+        } catch (IOException ignored) {
+        }
+        return msgs;
+    }
+    private static void vaciarInbox(String usuario) {
+        File f = archivoInbox(usuario);
+        if (f.exists()) {
+            try (PrintWriter pw = new PrintWriter(f)) {
+                // truncar archivo
+            } catch (IOException ignored) {
+            }
+        }
+    }
+    
+    
+
 }
+
+    }
+
+
+    
