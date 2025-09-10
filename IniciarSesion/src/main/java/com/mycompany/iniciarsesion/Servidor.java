@@ -1,13 +1,6 @@
 package com.mycompany.iniciarsesion;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -22,6 +15,15 @@ public class Servidor {
 
     public static void main(String[] args) throws IOException {
 
+        if (!MENSAJES_DIR.exists()) {
+            MENSAJES_DIR.mkdirs();
+        }
+
+        // Hilo para la consola admin
+        Thread adminThread = new Thread(Servidor::consolaAdmin);
+        adminThread.setDaemon(true);
+        adminThread.start();
+
         try (ServerSocket serverSocket = new ServerSocket(PUERTO)) {
             System.out.println("Servidor iniciado en el puerto " + PUERTO);
 
@@ -35,7 +37,73 @@ public class Servidor {
         }
     }
 
-    // AQUI CREO UNA CLASE PARA MANEJAR A CADA CLIENTE
+    // ========================= CONSOLA ADMIN =========================
+    private static void consolaAdmin() {
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(System.in))) {
+            String linea;
+            while ((linea = br.readLine()) != null) {
+                linea = linea.trim();
+                if (linea.startsWith("/enviar ")) {
+                    // Formato: /enviar <usuario> <mensaje>
+                    String resto = linea.substring(8).trim();
+                    int espacio = resto.indexOf(' ');
+                    if (espacio <= 0) {
+                        System.out.println("Uso: /enviar <usuario> <mensaje>");
+                        continue;
+                    }
+                    String usuario = resto.substring(0, espacio).trim();
+                    String mensaje = resto.substring(espacio + 1).trim();
+
+                    if (!existeUsuario(usuario)) {
+                        System.out.println("Usuario no existe: " + usuario);
+                        continue;
+                    }
+
+                    enviarMensajeASingle(usuario, "[ADMIN] " + mensaje);
+                    System.out.println("Mensaje enviado a " + usuario);
+                } else if (linea.equalsIgnoreCase("/usuarios")) {
+                    List<String> usuarios = listarUsuarios();
+                    System.out.println("Usuarios registrados: " + usuarios);
+                } else if (linea.equalsIgnoreCase("/help")) {
+                    System.out.println("""
+                        Comandos disponibles:
+                        /usuarios -> lista usuarios registrados
+                        /enviar <usuario> <mensaje> -> envia mensaje a usuario
+                        /help -> muestra comandos
+                    """);
+                } else {
+                    System.out.println("Comando no reconocido. Usa /help");
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Consola admin cerrada: " + e.getMessage());
+        }
+    }
+
+    private static boolean existeUsuario(String usuario) {
+        try (BufferedReader br = new BufferedReader(new FileReader(ARCHIVO_USUARIOS))) {
+            String linea;
+            while ((linea = br.readLine()) != null) {
+                String[] partes = linea.split(",");
+                if (partes[0].trim().equals(usuario)) return true;
+            }
+        } catch (IOException ignored) {}
+        return false;
+    }
+
+    private static List<String> listarUsuarios() {
+        List<String> usuarios = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(ARCHIVO_USUARIOS))) {
+            String linea;
+            while ((linea = br.readLine()) != null) {
+                String[] partes = linea.split(",");
+                if (partes.length >= 1) usuarios.add(partes[0].trim());
+            }
+        } catch (IOException ignored) {}
+        return usuarios;
+    }
+
+    // ========================= CLIENTE =========================
     private static class ManejadorCliente implements Runnable {
 
         private Socket socket;
@@ -86,7 +154,8 @@ public class Servidor {
                 e.printStackTrace();
             }
         }
-          private void mostrarMenu(String usuario, BufferedReader entrada, PrintWriter salida) throws IOException {
+
+        private void mostrarMenu(String usuario, BufferedReader entrada, PrintWriter salida) throws IOException {
             boolean continuar = true;
             while (continuar) {
                 salida.println("\n=== MENU PRINCIPAL ===");
@@ -120,7 +189,6 @@ public class Servidor {
             socket.close();
         }
 
-
         private void guardarUsuario(String usuario, String contrasena) {
             try (FileWriter fw = new FileWriter(ARCHIVO_USUARIOS, true);
                  BufferedWriter bw = new BufferedWriter(fw);
@@ -130,6 +198,7 @@ public class Servidor {
                 e.printStackTrace();
             }
         }
+
         private boolean validarUsuario(String usuario, String contrasena) {
             try (BufferedReader br = new BufferedReader(new FileReader(ARCHIVO_USUARIOS))) {
                 String linea;
@@ -144,21 +213,19 @@ public class Servidor {
             }
             return false;
         }
-
-
-private static synchronized void enviarMensajeASingle(String usuario, String texto) {
-    try (BufferedWriter bw = new BufferedWriter(new FileWriter(archivoInbox(usuario), true))) {
-        bw.write(new Date() + " | " + texto);
-        bw.newLine();
-    } catch (IOException e) {
-        System.out.println("Error guardando mensaje para " + usuario + ": " + e.getMessage());
     }
-}
-        
 
-         private static File archivoInbox(String usuario) {
+    private static synchronized void enviarMensajeASingle(String usuario, String texto) {
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(archivoInbox(usuario), true))) {
+            bw.write(new Date() + " | " + texto);
+            bw.newLine();
+        } catch (IOException e) {
+            System.out.println("Error guardando mensaje para " + usuario + ": " + e.getMessage());
+        }
+    }
+
+    private static File archivoInbox(String usuario) {
         return new File(MENSAJES_DIR, usuario + ".txt");
-
     }
 
     private static List<String> leerInbox(String usuario) {
@@ -172,25 +239,16 @@ private static synchronized void enviarMensajeASingle(String usuario, String tex
             while ((l = br.readLine()) != null) {
                 msgs.add(l);
             }
-        } catch (IOException ignored) {
-        }
+        } catch (IOException ignored) {}
         return msgs;
     }
+
     private static void vaciarInbox(String usuario) {
         File f = archivoInbox(usuario);
         if (f.exists()) {
             try (PrintWriter pw = new PrintWriter(f)) {
                 // truncar archivo
-            } catch (IOException ignored) {
-            }
+            } catch (IOException ignored) {}
         }
     }
-    
-    
-
 }
-
-    }
-
-
-    
