@@ -27,3 +27,20 @@ public class Cliente {
                     respuesta.toLowerCase().contains("usuario") ||
                     respuesta.toLowerCase().contains("contraseña") ||
                     respuesta.toLowerCase().contains("opcion") ||
+                    respuesta.toLowerCase().contains("si/no")) {
+
+                    String dato = teclado.readLine();
+                    salida.println(dato);
+
+                    // Si el usuario elige "3" (salir) en el menú, rompemos el loop
+                    if ("3".equals(dato.trim()) || dato.equalsIgnoreCase("no")) {
+                        System.out.println("Cliente: conexión cerrada.");
+                        break;
+                    }
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
