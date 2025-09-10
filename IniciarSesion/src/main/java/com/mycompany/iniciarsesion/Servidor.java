@@ -1,26 +1,108 @@
 
 package com.mycompany.iniciarsesion;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 
 
 public class Servidor {
+    private static final int PUERTO = 5000;
+    private static final String ARCHIVO_USUARIOS = "usuarios.txt";
 
     public static void main(String[] args) throws IOException {
-        int puerto = 5000;
-        try (ServerSocket serverSocket = new ServerSocket(puerto)){
-            System.out.println("Servidor iniciado en el puerto "+puerto);
+        
+        try (ServerSocket serverSocket = new ServerSocket(PUERTO)){
+            System.out.println("Servidor iniciado en el puerto "+PUERTO);
             
             
             while(true){
                 Socket socket = serverSocket.accept();
                 System.out.println("Cliente conectado");
-                socket.close();
+                new Thread(new ManejadorCliente(socket)).start();
             }
         } catch (IOException e){
             e.printStackTrace();
+        }
+    }
+    
+    // AQUI CREO UNA CLASE PARA MANEJAR A CADA CLIENTE
+    private static class ManejadorCliente implements Runnable {
+        private Socket socket;
+
+        public ManejadorCliente(Socket socket) {
+            this.socket = socket;
+        }
+
+        @Override
+        public void run() {
+            try (
+                BufferedReader entrada = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                PrintWriter salida = new PrintWriter(socket.getOutputStream(), true)
+            ) {
+                salida.println("¿Quieres iniciar sesión (1) o registrarte (2)?");
+                String opcion = entrada.readLine();
+
+                if ("2".equals(opcion)) {
+                    salida.println("Introduce un nombre de usuario:");
+                    String usuario = entrada.readLine();
+
+                    salida.println("Introduce una contraseña:");
+                    String contrasena = entrada.readLine();
+
+                    guardarUsuario(usuario, contrasena);
+                    salida.println("Registro exitoso. Ahora puedes iniciar sesión.");
+
+                } else if ("1".equals(opcion)) {
+                    salida.println("Introduce tu usuario:");
+                    String usuario = entrada.readLine();
+
+                    salida.println("Introduce tu contraseña:");
+                    String contrasena = entrada.readLine();
+
+                    if (validarUsuario(usuario, contrasena)) {
+                        salida.println("Inicio de sesión exitoso. Bienvenido " + usuario + "!");
+                    } else {
+                        salida.println("Usuario o contraseña incorrectos.");
+                    }
+                } else {
+                    salida.println("Opción no válida.");
+                }
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        private void guardarUsuario(String usuario, String contrasena) {
+            try (FileWriter fw = new FileWriter(ARCHIVO_USUARIOS, true);
+                 BufferedWriter bw = new BufferedWriter(fw);
+                 PrintWriter pw = new PrintWriter(bw)) {
+                pw.println(usuario + "," + contrasena);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        private boolean validarUsuario(String usuario, String contrasena) {
+            try (BufferedReader br = new BufferedReader(new FileReader(ARCHIVO_USUARIOS))) {
+                String linea;
+                while ((linea = br.readLine()) != null) {
+                    String[] datos = linea.split(",");
+                    if (datos[0].equals(usuario) && datos[1].equals(contrasena)) {
+                        return true;
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return false;
         }
     }
 }
