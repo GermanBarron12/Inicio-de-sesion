@@ -1,8 +1,8 @@
-
 package com.mycompany.iniciarsesion;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -10,30 +10,32 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-
+import java.util.Date;
 
 public class Servidor {
+
     private static final int PUERTO = 5000;
     private static final String ARCHIVO_USUARIOS = "usuarios.txt";
+    private static final File MENSAJES_DIR = new File("mensajes");
 
     public static void main(String[] args) throws IOException {
-        
-        try (ServerSocket serverSocket = new ServerSocket(PUERTO)){
-            System.out.println("Servidor iniciado en el puerto "+PUERTO);
-            
-            
-            while(true){
+
+        try (ServerSocket serverSocket = new ServerSocket(PUERTO)) {
+            System.out.println("Servidor iniciado en el puerto " + PUERTO);
+
+            while (true) {
                 Socket socket = serverSocket.accept();
                 System.out.println("Cliente conectado");
                 new Thread(new ManejadorCliente(socket)).start();
             }
-        } catch (IOException e){
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
-    
+
     // AQUI CREO UNA CLASE PARA MANEJAR A CADA CLIENTE
     private static class ManejadorCliente implements Runnable {
+
         private Socket socket;
 
         public ManejadorCliente(Socket socket) {
@@ -43,9 +45,7 @@ public class Servidor {
         @Override
         public void run() {
             try (
-                BufferedReader entrada = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                PrintWriter salida = new PrintWriter(socket.getOutputStream(), true)
-            ) {
+                    BufferedReader entrada = new BufferedReader(new InputStreamReader(socket.getInputStream())); PrintWriter salida = new PrintWriter(socket.getOutputStream(), true)) {
                 salida.println("¿Quieres iniciar sesión (1) o registrarte (2)?");
                 String opcion = entrada.readLine();
 
@@ -81,9 +81,7 @@ public class Servidor {
         }
 
         private void guardarUsuario(String usuario, String contrasena) {
-            try (FileWriter fw = new FileWriter(ARCHIVO_USUARIOS, true);
-                 BufferedWriter bw = new BufferedWriter(fw);
-                 PrintWriter pw = new PrintWriter(bw)) {
+            try (FileWriter fw = new FileWriter(ARCHIVO_USUARIOS, true); BufferedWriter bw = new BufferedWriter(fw); PrintWriter pw = new PrintWriter(bw)) {
                 pw.println(usuario + "," + contrasena);
             } catch (IOException e) {
                 e.printStackTrace();
@@ -105,4 +103,18 @@ public class Servidor {
             return false;
         }
     }
+
+    private static File archivoInbox(String usuario) {
+        return new File(MENSAJES_DIR, usuario + ".txt");
+    }
+
+    private static synchronized void enviarMensajeASingle(String usuario, String texto) {
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(archivoInbox(usuario), true))) {
+            bw.write(new Date() + " | " + texto);
+            bw.newLine();
+        } catch (IOException e) {
+            System.out.println("Error guardando mensaje para " + usuario + ": " + e.getMessage());
+        }
+    }
+
 }
