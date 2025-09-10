@@ -3,6 +3,7 @@ package com.mycompany.iniciarsesion;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -10,11 +11,13 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Date;
 
 
 public class Servidor {
     private static final int PUERTO = 5000;
     private static final String ARCHIVO_USUARIOS = "usuarios.txt";
+    private static final File MENSAJES_DIR = new File("mensajes");
 
     public static void main(String[] args) throws IOException {
         
@@ -104,5 +107,18 @@ public class Servidor {
             }
             return false;
         }
+        private static File archivoInbox(String usuario) {
+    return new File(MENSAJES_DIR, usuario + ".txt");
+}
+
+private static synchronized void enviarMensajeASingle(String usuario, String texto) {
+    try (BufferedWriter bw = new BufferedWriter(new FileWriter(archivoInbox(usuario), true))) {
+        bw.write(new Date() + " | " + texto);
+        bw.newLine();
+    } catch (IOException e) {
+        System.out.println("Error guardando mensaje para " + usuario + ": " + e.getMessage());
+    }
+}
+        
     }
 }
