@@ -119,7 +119,7 @@ public class Servidor {
                 BufferedReader entrada = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 PrintWriter salida = new PrintWriter(socket.getOutputStream(), true)
             ) {
-                salida.println("¿Quieres iniciar sesión (1) o registrarte (2)?");
+                salida.println("¿Quieres iniciar sesion (1) o registrarte (2)?");
                 String opcion = entrada.readLine();
 
                 String usuario = null;
@@ -128,11 +128,20 @@ public class Servidor {
                     salida.println("Introduce un nombre de usuario:");
                     usuario = entrada.readLine();
 
+                    // Verificar si el usuario ya existe y dar oportunidad de reintentar
+                    while (existeUsuario(usuario)) {
+                        salida.println("ERROR: El usuario '" + usuario + "' ya existe. Elige otro nombre:");
+                        usuario = entrada.readLine();
+                        if (usuario == null) return; // Si se desconecta
+                    }
+
                     salida.println("Introduce una contraseña:");
                     String contrasena = entrada.readLine();
 
                     guardarUsuario(usuario, contrasena);
-                    salida.println("Registro exitoso. Ahora puedes iniciar sesión.");
+                    salida.println("Registro exitoso. Sesion iniciada");
+                    salida.println("Bienvenido " + usuario + "!");
+                    mostrarMenu(usuario, entrada, salida);
 
                 } else if ("1".equals(opcion)) {
                     salida.println("Introduce tu usuario:");
@@ -142,13 +151,13 @@ public class Servidor {
                     String contrasena = entrada.readLine();
 
                     if (validarUsuario(usuario, contrasena)) {
-                        salida.println("Inicio de sesión exitoso. Bienvenido " + usuario + "!");
+                        salida.println("Inicio de sesion exitoso. Bienvenido " + usuario + "!");
                         mostrarMenu(usuario, entrada, salida);
                     } else {
                         salida.println("Usuario o contraseña incorrectos.");
                     }
                 } else {
-                    salida.println("Opción no válida.");
+                    salida.println("Opcion no valida.");
                 }
 
             } catch (IOException e) {
@@ -204,7 +213,7 @@ public class Servidor {
                 int intentos = 0;
                 boolean acertado = false;
                 
-                salida.println("\n=== JUEGO: ADIVINA EL NÚMERO ===");
+                salida.println("\n=== JUEGO: ADIVINA EL NUMERO ===");
                 salida.println("Nuevo juego: Adivina el numero del 1 al 10. Tienes 3 intentos.");
                 
                 while (intentos < 3) {
@@ -225,10 +234,10 @@ public class Servidor {
                     }
                     
                     if (intentoUsuario == numeroSecreto) {
-                        salida.println("¡Correcto! Adivinaste el número.");
+                        salida.println("¡Correcto! Adivinaste el numero.");
                         acertado = true;
                         // Guardar estadística de victoria
-                        enviarMensajeASingle(usuario, "¡Ganaste el juego de adivinanza! Número: " + numeroSecreto + " en " + (intentos + 1) + " intento(s).");
+                        enviarMensajeASingle(usuario, "¡Ganaste el juego de adivinanza! Numero: " + numeroSecreto + " en " + (intentos + 1) + " intento(s).");
                         break;
                     } else {
                         intentos++;
