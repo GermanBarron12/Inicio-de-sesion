@@ -26,7 +26,7 @@ public class Cliente {
                 // Detectar si estamos en el menú principal
                 if (respuesta.contains("=== MENU PRINCIPAL ===")) {
                     enMenuPrincipal = true;
-                } else if (respuesta.contains("=== JUEGO: ADIVINA EL NÚMERO ===") ||
+                } else if (respuesta.contains("=== JUEGO: ADIVINA EL NUMERO ===") ||
                           respuesta.contains("Nuevo juego: Adivina el numero")) {
                     enMenuPrincipal = false;
                 } else if (respuesta.contains("Regresando al menu principal")) {
