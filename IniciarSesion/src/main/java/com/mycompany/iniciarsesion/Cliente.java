@@ -1,7 +1,10 @@
 package com.mycompany.iniciarsesion;
 
-import java.io.*;
-import java.net.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
 
 public class Cliente {
     private static final String HOST = "localhost";
@@ -15,27 +18,50 @@ public class Cliente {
             BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in))
         ) {
             String respuesta;
+            boolean enMenuPrincipal = false;
+            
             while ((respuesta = entrada.readLine()) != null) {
-                // Mostrar lo que manda el servidor
                 System.out.println("Servidor: " + respuesta);
-
-                // Si el servidor hace una pregunta o espera un input, pedimos al usuario
-                if (respuesta.contains("?") 
-                    || respuesta.toLowerCase().contains("usuario")
-                    || respuesta.toLowerCase().contains("contraseña")
-                    || respuesta.toLowerCase().contains("elige opcion")
-                    || respuesta.toLowerCase().contains("escribe")
-                    || respuesta.toLowerCase().contains("introduce")
-                    || respuesta.toLowerCase().contains("si/no")) {
-
-                    System.out.print("Tu: ");
+                
+                // Detectar si estamos en el menú principal
+                if (respuesta.contains("=== MENU PRINCIPAL ===")) {
+                    enMenuPrincipal = true;
+                } else if (respuesta.contains("=== JUEGO: ADIVINA EL NÚMERO ===") ||
+                          respuesta.contains("Nuevo juego: Adivina el numero")) {
+                    enMenuPrincipal = false;
+                } else if (respuesta.contains("Regresando al menu principal")) {
+                    enMenuPrincipal = true;
+                }
+                
+                // Si el servidor espera una respuesta del cliente
+                if (respuesta.endsWith("?") ||
+                    respuesta.toLowerCase().contains("usuario") ||
+                    respuesta.toLowerCase().contains("contraseña") ||
+                    respuesta.toLowerCase().contains("opcion") ||
+                    respuesta.toLowerCase().contains("si/no") ||
+                    respuesta.contains("Elige opcion:") ||
+                    respuesta.contains("Nuevo juego: Adivina el numero") ||
+                    respuesta.contains("Intentos restantes:") ||
+                    respuesta.contains("no es un numero valido")) {
+                    
+                    System.out.print("Tu respuesta: ");
                     String dato = teclado.readLine();
                     salida.println(dato);
+                    
+                    // Solo cerrar si estamos en el menú principal Y el usuario elige "3"
+                    if ("3".equals(dato.trim()) && enMenuPrincipal && respuesta.contains("Elige opcion:")) {
+                        // Leer la respuesta de "Adios!" antes de cerrar
+                        respuesta = entrada.readLine();
+                        if (respuesta != null) {
+                            System.out.println("Servidor: " + respuesta);
+                        }
+                        System.out.println("Cliente: conexión cerrada.");
+                        break;
+                    }
                 }
             }
-
         } catch (IOException e) {
-            System.out.println("Error en cliente: " + e.getMessage());
+            System.out.println("Error de conexión: " + e.getMessage());
         }
     }
 }
