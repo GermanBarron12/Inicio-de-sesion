@@ -6,6 +6,7 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Random;
 
 public class Servidor {
 
@@ -160,7 +161,8 @@ public class Servidor {
             while (continuar) {
                 salida.println("\n=== MENU PRINCIPAL ===");
                 salida.println("1) Ver bandeja de entrada");
-                salida.println("2) Salir");
+                salida.println("2) Jugar - Adivina el número");
+                salida.println("3) Salir");
                 salida.println("Elige opcion:");
 
                 String opcion = entrada.readLine();
@@ -179,6 +181,9 @@ public class Servidor {
                         }
                         break;
                     case "2":
+                        iniciarJuego(usuario, entrada, salida);
+                        break;
+                    case "3":
                         salida.println("Adios!");
                         continuar = false;
                         break;
@@ -187,6 +192,84 @@ public class Servidor {
                 }
             }
             socket.close();
+        }
+
+        // ========================= JUEGO ADIVINAR NÚMERO =========================
+        private void iniciarJuego(String usuario, BufferedReader entrada, PrintWriter salida) throws IOException {
+            boolean seguirJugando = true;
+            
+            while (seguirJugando) {
+                Random random = new Random();
+                int numeroSecreto = random.nextInt(10) + 1;
+                int intentos = 0;
+                boolean acertado = false;
+                
+                salida.println("\n=== JUEGO: ADIVINA EL NÚMERO ===");
+                salida.println("Nuevo juego: Adivina el numero del 1 al 10. Tienes 3 intentos.");
+                
+                while (intentos < 3) {
+                    String entradaUsuario = entrada.readLine();
+                    if (entradaUsuario == null) {
+                        seguirJugando = false;
+                        break;
+                    }
+                    
+                    entradaUsuario = entradaUsuario.trim();
+                    int intentoUsuario;
+                    
+                    try {
+                        intentoUsuario = Integer.parseInt(entradaUsuario);
+                    } catch (NumberFormatException e) {
+                        salida.println("Eso no es un numero valido. Intenta de nuevo (no cuenta como intento).");
+                        continue;
+                    }
+                    
+                    if (intentoUsuario == numeroSecreto) {
+                        salida.println("¡Correcto! Adivinaste el número.");
+                        acertado = true;
+                        // Guardar estadística de victoria
+                        enviarMensajeASingle(usuario, "¡Ganaste el juego de adivinanza! Número: " + numeroSecreto + " en " + (intentos + 1) + " intento(s).");
+                        break;
+                    } else {
+                        intentos++;
+                        String pista = (intentoUsuario < numeroSecreto)
+                                ? "Incorrecto. El numero secreto es mayor."
+                                : "Incorrecto. El numero secreto es menor.";
+                        if (intentos < 3) {
+                            salida.println(pista + " Intentos restantes: " + (3 - intentos));
+                        } else {
+                            salida.println("No lograste adivinar. El numero era: " + numeroSecreto);
+                            // Guardar estadística de derrota
+                            enviarMensajeASingle(usuario, "Perdiste el juego de adivinanza. El número era: " + numeroSecreto);
+                        }
+                    }
+                }
+                
+                // Preguntar si quiere jugar de nuevo
+                if (!seguirJugando) {
+                    break;
+                }
+                
+                String respuesta;
+                while (true) {
+                    salida.println("¿Quieres jugar otra vez? (si/no)");
+                    respuesta = entrada.readLine();
+                    if (respuesta == null) {
+                        seguirJugando = false;
+                        break;
+                    }
+                    respuesta = respuesta.trim().toLowerCase();
+                    if (respuesta.equals("si")) {
+                        break; // Vuelve a empezar el juego
+                    } else if (respuesta.equals("no")) {
+                        seguirJugando = false;
+                        salida.println("Gracias por jugar. Regresando al menu principal...");
+                        break;
+                    } else {
+                        salida.println("Respuesta invalida. Escribe solo 'si' o 'no'.");
+                    }
+                }
+            }
         }
 
         private void guardarUsuario(String usuario, String contrasena) {
