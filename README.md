@@ -21,12 +21,14 @@ Salir (opción 3)
 
 Lista de comandos disponibles en el servidor a traves de la consola
 Mientras el servidor está corriendo, puedes escribir:
-/usuarios                           # Ver lista de usuarios registrados
-/enviar <usuario> <mensaje>         # Enviar mensaje a un usuario
-/help                              # Ver esta lista de comandos
-Ejemplo:
-/enviar juan Hola, bienvenido al sistema
-Archivos que se crean
+/help - Mostrar esta ayuda
+/users - Mostrar todos los usuarios registrados
+/messages <usuario> - Ver mensajes de un usuario
+/enviar <usuario> <mensaje> - Enviar mensaje a un usuario
+/clear - Limpiar consola
+/stop - Detener servidor
+
+Archivos que se crean:
 
 usuarios.txt - Lista de usuarios y contraseñas
 mensajes/ - Carpeta con los mensajes de cada usuario
