@@ -12,7 +12,7 @@ public class Servidor {
 
     public static void main(String[] args) throws IOException {
         if (!MENSAJES_DIR.exists()) {
-            MENSAJES_DIR.mkdir();
+            MENSAJES_DIR.mkdirs();
         }
 
         try (ServerSocket serverSocket = new ServerSocket(PUERTO)) {
@@ -28,8 +28,9 @@ public class Servidor {
         }
     }
 
-    // ======================== MANEJADOR DE CLIENTES ========================
+    // Clase para manejar a cada cliente conectado
     private static class ManejadorCliente implements Runnable {
+
         private Socket socket;
 
         public ManejadorCliente(Socket socket) {
@@ -66,14 +67,7 @@ public class Servidor {
 
                     if (validarUsuario(usuario, contrasena)) {
                         salida.println("Inicio de sesión exitoso. Bienvenido " + usuario + "!");
-
-                        // Si es admin entra al menú de admin
-                        if ("admin".equalsIgnoreCase(usuario)) {
-                            mostrarMenuAdmin(usuario, entrada, salida);
-                        } else {
-                            mostrarMenu(usuario, entrada, salida);
-                        }
-
+                        mostrarMenu(usuario, entrada, salida);
                     } else {
                         salida.println("Usuario o contraseña incorrectos.");
                     }
@@ -86,7 +80,6 @@ public class Servidor {
             }
         }
 
-        // ======================== MENÚ PRINCIPAL DEL USUARIO ========================
         private void mostrarMenu(String usuario, BufferedReader entrada, PrintWriter salida) throws IOException {
             boolean continuar = true;
             while (continuar) {
@@ -111,16 +104,13 @@ public class Servidor {
                             vaciarInbox(usuario);
                         }
                         break;
-
                     case "2":
                         jugarAdivinaNumero(entrada, salida);
                         break;
-
                     case "3":
                         salida.println("Adios!");
                         continuar = false;
                         break;
-
                     default:
                         salida.println("Opcion no valida.");
                 }
@@ -128,98 +118,60 @@ public class Servidor {
             socket.close();
         }
 
-        // ======================== MENÚ ADMIN ========================
-        private void mostrarMenuAdmin(String usuario, BufferedReader entrada, PrintWriter salida) throws IOException {
-            boolean continuar = true;
-            while (continuar) {
-                salida.println("\n=== MENU ADMIN ===");
-                salida.println("1) Enviar mensaje a un usuario");
-                salida.println("2) Salir");
-                salida.println("Elige opcion:");
-
-                String opcion = entrada.readLine();
-
-                switch (opcion) {
-                    case "1":
-                        salida.println("Introduce el usuario destino:");
-                        String destino = entrada.readLine();
-                        salida.println("Escribe el mensaje:");
-                        String mensaje = entrada.readLine();
-                        enviarMensajeASingle(destino, "ADMIN -> " + mensaje);
-                        salida.println("Mensaje enviado a " + destino);
-                        break;
-
-                    case "2":
-                        salida.println("Saliendo del modo admin...");
-                        continuar = false;
-                        break;
-
-                    default:
-                        salida.println("Opcion no valida.");
-                }
-            }
-            socket.close();
-        }
-
-        // ======================== JUEGO ADIVINA EL NÚMERO ========================
-        private void jugarAdivinaNumero(BufferedReader entrada, PrintWriter salida) throws IOException {
+        private void jugarAdivinaNumero(BufferedReader in, PrintWriter out) throws IOException {
             boolean seguirJugando = true;
 
             while (seguirJugando) {
                 Random random = new Random();
                 int numeroSecreto = random.nextInt(10) + 1;
                 int intentos = 0;
-                boolean acertado = false;
 
-                salida.println("Nuevo juego: Adivina el numero del 1 al 10. Tienes 3 intentos.");
+                out.println("Nuevo juego: Adivina el número del 1 al 10. Tienes 3 intentos.");
 
                 while (intentos < 3) {
-                    String entradaUsuario = entrada.readLine();
-                    if (entradaUsuario == null) {
+                    String entradaJuego = in.readLine();
+                    if (entradaJuego == null) {
                         seguirJugando = false;
                         break;
                     }
 
-                    entradaUsuario = entradaUsuario.trim();
                     int intentoUsuario;
                     try {
-                        intentoUsuario = Integer.parseInt(entradaUsuario);
+                        intentoUsuario = Integer.parseInt(entradaJuego.trim());
                     } catch (NumberFormatException e) {
-                        salida.println("Eso no es un numero valido. Intenta de nuevo (no cuenta como intento).");
+                        out.println("Eso no es un número válido. Intenta de nuevo (no cuenta como intento).");
                         continue;
                     }
 
                     if (intentoUsuario == numeroSecreto) {
-                        salida.println("Correcto! Adivinaste el número.");
-                        acertado = true;
+                        out.println("¡Correcto! Adivinaste el número.");
                         break;
                     } else {
                         intentos++;
                         String pista = (intentoUsuario < numeroSecreto)
-                                ? "Incorrecto. El numero secreto es mayor."
-                                : "Incorrecto. El numero secreto es menor.";
+                                ? "Incorrecto. El número secreto es mayor."
+                                : "Incorrecto. El número secreto es menor.";
 
                         if (intentos < 3) {
-                            salida.println(pista + " Intentos restantes: " + (3 - intentos));
+                            out.println(pista + " Intentos restantes: " + (3 - intentos));
                         } else {
-                            salida.println("No lograste adivinar. El numero era: " + numeroSecreto);
+                            out.println("No lograste adivinar. El número era: " + numeroSecreto);
                         }
                     }
                 }
 
-                if (!seguirJugando) break;
+                // Opciones al terminar una partida
+                out.println("=== ¿Qué deseas hacer ahora? ===");
+                out.println("1) Jugar otra vez");
+                out.println("2) Regresar al menú principal");
 
-                salida.println("¿Quieres jugar otra vez? (si/no)");
-                String respuesta = entrada.readLine();
-
-                if (respuesta == null || respuesta.trim().equalsIgnoreCase("no")) {
-                    seguirJugando = false;
-                    salida.println("Gracias por jugar. Regresando al menú principal...");
+                String opcionFinal = in.readLine();
+                if (opcionFinal == null || opcionFinal.equals("2")) {
+                    seguirJugando = false; // regresar al menú
                 }
             }
         }
 
-        // ======================== FUNCIONES DE USUARIO ========================
         private void guardarUsuario(String usuario, String contrasena) {
             try (FileWriter fw = new FileWriter(ARCHIVO_USUARIOS, true);
                  BufferedWriter bw = new BufferedWriter(fw);
@@ -244,44 +196,43 @@ public class Servidor {
             }
             return false;
         }
-    }
 
-    // ======================== FUNCIONES DE MENSAJES ========================
-    private static synchronized void enviarMensajeASingle(String usuario, String texto) {
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(archivoInbox(usuario), true))) {
-            bw.write(new Date() + " | " + texto);
-            bw.newLine();
-        } catch (IOException e) {
-            System.out.println("Error guardando mensaje para " + usuario + ": " + e.getMessage());
+        private static synchronized void enviarMensajeASingle(String usuario, String texto) {
+            try (BufferedWriter bw = new BufferedWriter(new FileWriter(archivoInbox(usuario), true))) {
+                bw.write(new Date() + " | " + texto);
+                bw.newLine();
+            } catch (IOException e) {
+                System.out.println("Error guardando mensaje para " + usuario + ": " + e.getMessage());
+            }
         }
-    }
 
-    private static File archivoInbox(String usuario) {
-        return new File(MENSAJES_DIR, usuario + ".txt");
-    }
+        private static File archivoInbox(String usuario) {
+            return new File(MENSAJES_DIR, usuario + ".txt");
+        }
 
-    private static List<String> leerInbox(String usuario) {
-        List<String> msgs = new ArrayList<>();
-        File f = archivoInbox(usuario);
-        if (!f.exists()) {
+        private static List<String> leerInbox(String usuario) {
+            List<String> msgs = new ArrayList<>();
+            File f = archivoInbox(usuario);
+            if (!f.exists()) {
+                return msgs;
+            }
+            try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+                String l;
+                while ((l = br.readLine()) != null) {
+                    msgs.add(l);
+                }
+            } catch (IOException ignored) {
+            }
             return msgs;
         }
-        try (BufferedReader br = new BufferedReader(new FileReader(f))) {
-            String l;
-            while ((l = br.readLine()) != null) {
-                msgs.add(l);
-            }
-        } catch (IOException ignored) {
-        }
-        return msgs;
-    }
 
-    private static void vaciarInbox(String usuario) {
-        File f = archivoInbox(usuario);
-        if (f.exists()) {
-            try (PrintWriter pw = new PrintWriter(f)) {
-                // truncar archivo
-            } catch (IOException ignored) {
+        private static void vaciarInbox(String usuario) {
+            File f = archivoInbox(usuario);
+            if (f.exists()) {
+                try (PrintWriter pw = new PrintWriter(f)) {
+                    // truncar archivo
+                } catch (IOException ignored) {
+                }
             }
         }
     }
