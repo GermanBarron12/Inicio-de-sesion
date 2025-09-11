@@ -3,10 +3,7 @@ package com.mycompany.iniciarsesion;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 public class Servidor {
 
@@ -20,10 +17,18 @@ public class Servidor {
             MENSAJES_DIR.mkdirs();
         }
 
-        // Hilo para la consola admin
-        Thread adminThread = new Thread(Servidor::consolaAdmin);
-        adminThread.setDaemon(true);
-        adminThread.start();
+        // Lanzar hilo para leer comandos desde la consola del servidor
+        new Thread(() -> {
+            try (BufferedReader consola = new BufferedReader(new InputStreamReader(System.in))) {
+                String comando;
+                System.out.println("Escribe /help para ver los comandos disponibles");
+                while ((comando = consola.readLine()) != null) {
+                    manejarComandoServidor(comando);
+                }
+            } catch (IOException e) {
+                System.out.println("Error en la consola del servidor: " + e.getMessage());
+            }
+        }).start();
 
         try (ServerSocket serverSocket = new ServerSocket(PUERTO)) {
             System.out.println("Servidor iniciado en el puerto " + PUERTO);
@@ -38,73 +43,7 @@ public class Servidor {
         }
     }
 
-    // ========================= CONSOLA ADMIN =========================
-    private static void consolaAdmin() {
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(System.in))) {
-            String linea;
-            while ((linea = br.readLine()) != null) {
-                linea = linea.trim();
-                if (linea.startsWith("/enviar ")) {
-                    // Formato: /enviar <usuario> <mensaje>
-                    String resto = linea.substring(8).trim();
-                    int espacio = resto.indexOf(' ');
-                    if (espacio <= 0) {
-                        System.out.println("Uso: /enviar <usuario> <mensaje>");
-                        continue;
-                    }
-                    String usuario = resto.substring(0, espacio).trim();
-                    String mensaje = resto.substring(espacio + 1).trim();
-
-                    if (!existeUsuario(usuario)) {
-                        System.out.println("Usuario no existe: " + usuario);
-                        continue;
-                    }
-
-                    enviarMensajeASingle(usuario, "[ADMIN] " + mensaje);
-                    System.out.println("Mensaje enviado a " + usuario);
-                } else if (linea.equalsIgnoreCase("/usuarios")) {
-                    List<String> usuarios = listarUsuarios();
-                    System.out.println("Usuarios registrados: " + usuarios);
-                } else if (linea.equalsIgnoreCase("/help")) {
-                    System.out.println("""
-                        Comandos disponibles:
-                        /usuarios -> lista usuarios registrados
-                        /enviar <usuario> <mensaje> -> envia mensaje a usuario
-                        /help -> muestra comandos
-                    """);
-                } else {
-                    System.out.println("Comando no reconocido. Usa /help");
-                }
-            }
-        } catch (IOException e) {
-            System.out.println("Consola admin cerrada: " + e.getMessage());
-        }
-    }
-
-    private static boolean existeUsuario(String usuario) {
-        try (BufferedReader br = new BufferedReader(new FileReader(ARCHIVO_USUARIOS))) {
-            String linea;
-            while ((linea = br.readLine()) != null) {
-                String[] partes = linea.split(",");
-                if (partes[0].trim().equals(usuario)) return true;
-            }
-        } catch (IOException ignored) {}
-        return false;
-    }
-
-    private static List<String> listarUsuarios() {
-        List<String> usuarios = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new FileReader(ARCHIVO_USUARIOS))) {
-            String linea;
-            while ((linea = br.readLine()) != null) {
-                String[] partes = linea.split(",");
-                if (partes.length >= 1) usuarios.add(partes[0].trim());
-            }
-        } catch (IOException ignored) {}
-        return usuarios;
-    }
-
-    // ========================= CLIENTE =========================
+    // ========================= MANEJADOR DE CLIENTES =========================
     private static class ManejadorCliente implements Runnable {
 
         private Socket socket;
@@ -119,7 +58,7 @@ public class Servidor {
                 BufferedReader entrada = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 PrintWriter salida = new PrintWriter(socket.getOutputStream(), true)
             ) {
-                salida.println("¿Quieres iniciar sesion (1) o registrarte (2)?");
+                salida.println("¿Quieres iniciar sesión (1) o registrarte (2)?");
                 String opcion = entrada.readLine();
 
                 String usuario = null;
@@ -128,20 +67,16 @@ public class Servidor {
                     salida.println("Introduce un nombre de usuario:");
                     usuario = entrada.readLine();
 
-                    // Verificar si el usuario ya existe y dar oportunidad de reintentar
-                    while (existeUsuario(usuario)) {
-                        salida.println("ERROR: El usuario '" + usuario + "' ya existe. Elige otro nombre:");
-                        usuario = entrada.readLine();
-                        if (usuario == null) return; // Si se desconecta
+                    if (existeUsuario(usuario)) {
+                        salida.println("El usuario ya existe. Intenta con otro nombre.");
+                        return;
                     }
 
                     salida.println("Introduce una contraseña:");
                     String contrasena = entrada.readLine();
 
                     guardarUsuario(usuario, contrasena);
-                    salida.println("Registro exitoso. Sesion iniciada");
-                    salida.println("Bienvenido " + usuario + "!");
-                    mostrarMenu(usuario, entrada, salida);
+                    salida.println("Registro exitoso. Ahora puedes iniciar sesión.");
 
                 } else if ("1".equals(opcion)) {
                     salida.println("Introduce tu usuario:");
@@ -151,13 +86,13 @@ public class Servidor {
                     String contrasena = entrada.readLine();
 
                     if (validarUsuario(usuario, contrasena)) {
-                        salida.println("Inicio de sesion exitoso. Bienvenido " + usuario + "!");
+                        salida.println("Inicio de sesión exitoso. Bienvenido " + usuario + "!");
                         mostrarMenu(usuario, entrada, salida);
                     } else {
                         salida.println("Usuario o contraseña incorrectos.");
                     }
                 } else {
-                    salida.println("Opcion no valida.");
+                    salida.println("Opción no válida.");
                 }
 
             } catch (IOException e) {
@@ -172,6 +107,8 @@ public class Servidor {
                 salida.println("1) Ver bandeja de entrada");
                 salida.println("2) Jugar - Adivina el número");
                 salida.println("3) Salir");
+                salida.println("4) Enviar mensaje a otro usuario");
+                salida.println("5) Ver todos los usuarios registrados");
                 salida.println("Elige opcion:");
 
                 String opcion = entrada.readLine();
@@ -189,13 +126,47 @@ public class Servidor {
                             vaciarInbox(usuario);
                         }
                         break;
+
                     case "2":
                         iniciarJuego(usuario, entrada, salida);
                         break;
+
                     case "3":
                         salida.println("Adios!");
                         continuar = false;
                         break;
+
+                    case "4":
+                        salida.println("¿A qué usuario deseas enviar el mensaje?");
+                        String destinatario = entrada.readLine();
+
+                        if (!existeUsuario(destinatario)) {
+                            salida.println("El usuario " + destinatario + " no existe.");
+                        } else if (destinatario.equals(usuario)) {
+                            salida.println("No puedes enviarte mensajes a ti mismo.");
+                        } else {
+                            salida.println("Escribe el mensaje:");
+                            String mensaje = entrada.readLine();
+                            enviarMensajeASingle(destinatario,
+                                    "[De " + usuario + "] " + mensaje);
+                            salida.println("Mensaje enviado a " + destinatario);
+                        }
+                        break;
+
+                    case "5":
+                        List<String> todosLosUsuarios = obtenerTodosLosUsuarios();
+                        if (todosLosUsuarios.isEmpty()) {
+                            salida.println("No hay usuarios registrados.");
+                        } else {
+                            salida.println("Usuarios registrados:");
+                            for (String u : todosLosUsuarios) {
+                                if (!u.equals(usuario)) {
+                                    salida.println("- " + u);
+                                }
+                            }
+                        }
+                        break;
+
                     default:
                         salida.println("Opcion no valida.");
                 }
@@ -203,84 +174,42 @@ public class Servidor {
             socket.close();
         }
 
-        // ========================= JUEGO ADIVINAR NÚMERO =========================
+        // ========================= JUEGO =========================
         private void iniciarJuego(String usuario, BufferedReader entrada, PrintWriter salida) throws IOException {
-            boolean seguirJugando = true;
-            
-            while (seguirJugando) {
-                Random random = new Random();
-                int numeroSecreto = random.nextInt(10) + 1;
-                int intentos = 0;
-                boolean acertado = false;
-                
-                salida.println("\n=== JUEGO: ADIVINA EL NUMERO ===");
-                salida.println("Nuevo juego: Adivina el numero del 1 al 10. Tienes 3 intentos.");
-                
-                while (intentos < 3) {
-                    String entradaUsuario = entrada.readLine();
-                    if (entradaUsuario == null) {
-                        seguirJugando = false;
-                        break;
-                    }
-                    
-                    entradaUsuario = entradaUsuario.trim();
-                    int intentoUsuario;
-                    
-                    try {
-                        intentoUsuario = Integer.parseInt(entradaUsuario);
-                    } catch (NumberFormatException e) {
-                        salida.println("Eso no es un numero valido. Intenta de nuevo (no cuenta como intento).");
-                        continue;
-                    }
-                    
-                    if (intentoUsuario == numeroSecreto) {
-                        salida.println("¡Correcto! Adivinaste el numero.");
-                        acertado = true;
-                        // Guardar estadística de victoria
-                        enviarMensajeASingle(usuario, "¡Ganaste el juego de adivinanza! Numero: " + numeroSecreto + " en " + (intentos + 1) + " intento(s).");
-                        break;
+            Random random = new Random();
+            int numeroSecreto = random.nextInt(10) + 1;
+            int intentos = 0;
+
+            salida.println("\n=== JUEGO: ADIVINA EL NÚMERO ===");
+            salida.println("Adivina el numero del 1 al 10. Tienes 3 intentos.");
+
+            while (intentos < 3) {
+                String entradaUsuario = entrada.readLine();
+                if (entradaUsuario == null) break;
+
+                try {
+                    int intento = Integer.parseInt(entradaUsuario);
+                    if (intento == numeroSecreto) {
+                        salida.println("¡Correcto! El número era " + numeroSecreto);
+                        return;
                     } else {
                         intentos++;
-                        String pista = (intentoUsuario < numeroSecreto)
-                                ? "Incorrecto. El numero secreto es mayor."
-                                : "Incorrecto. El numero secreto es menor.";
                         if (intentos < 3) {
-                            salida.println(pista + " Intentos restantes: " + (3 - intentos));
+                            salida.println("Incorrecto. El numero secreto es " +
+                                    (intento < numeroSecreto ? "mayor" : "menor") +
+                                    ". Intentos restantes: " + (3 - intentos));
                         } else {
                             salida.println("No lograste adivinar. El numero era: " + numeroSecreto);
-                            // Guardar estadística de derrota
-                            enviarMensajeASingle(usuario, "Perdiste el juego de adivinanza. El número era: " + numeroSecreto);
                         }
                     }
-                }
-                
-                // Preguntar si quiere jugar de nuevo
-                if (!seguirJugando) {
-                    break;
-                }
-                
-                String respuesta;
-                while (true) {
-                    salida.println("¿Quieres jugar otra vez? (si/no)");
-                    respuesta = entrada.readLine();
-                    if (respuesta == null) {
-                        seguirJugando = false;
-                        break;
-                    }
-                    respuesta = respuesta.trim().toLowerCase();
-                    if (respuesta.equals("si")) {
-                        break; // Vuelve a empezar el juego
-                    } else if (respuesta.equals("no")) {
-                        seguirJugando = false;
-                        salida.println("Gracias por jugar. Regresando al menu principal...");
-                        break;
-                    } else {
-                        salida.println("Respuesta invalida. Escribe solo 'si' o 'no'.");
-                    }
+                } catch (NumberFormatException e) {
+                    salida.println("Eso no es un número válido. Intenta otra vez.");
                 }
             }
+            salida.println("Regresando al menu principal...");
         }
 
+        // ========================= USUARIOS =========================
         private void guardarUsuario(String usuario, String contrasena) {
             try (FileWriter fw = new FileWriter(ARCHIVO_USUARIOS, true);
                  BufferedWriter bw = new BufferedWriter(fw);
@@ -296,7 +225,7 @@ public class Servidor {
                 String linea;
                 while ((linea = br.readLine()) != null) {
                     String[] datos = linea.split(",");
-                    if (datos[0].equals(usuario) && datos[1].equals(contrasena)) {
+                    if (datos.length >= 2 && datos[0].equals(usuario) && datos[1].equals(contrasena)) {
                         return true;
                     }
                 }
@@ -307,6 +236,7 @@ public class Servidor {
         }
     }
 
+    // ========================= BANDEJA DE ENTRADA =========================
     private static synchronized void enviarMensajeASingle(String usuario, String texto) {
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(archivoInbox(usuario), true))) {
             bw.write(new Date() + " | " + texto);
@@ -323,9 +253,7 @@ public class Servidor {
     private static List<String> leerInbox(String usuario) {
         List<String> msgs = new ArrayList<>();
         File f = archivoInbox(usuario);
-        if (!f.exists()) {
-            return msgs;
-        }
+        if (!f.exists()) return msgs;
         try (BufferedReader br = new BufferedReader(new FileReader(f))) {
             String l;
             while ((l = br.readLine()) != null) {
@@ -341,6 +269,108 @@ public class Servidor {
             try (PrintWriter pw = new PrintWriter(f)) {
                 // truncar archivo
             } catch (IOException ignored) {}
+        }
+    }
+
+    private static boolean existeUsuario(String usuario) {
+        try (BufferedReader br = new BufferedReader(new FileReader(ARCHIVO_USUARIOS))) {
+            String linea;
+            while ((linea = br.readLine()) != null) {
+                String[] partes = linea.split(",");
+                if (partes.length > 0 && partes[0].trim().equals(usuario)) return true;
+            }
+        } catch (IOException ignored) {}
+        return false;
+    }
+
+    private static List<String> obtenerTodosLosUsuarios() {
+        List<String> usuarios = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(ARCHIVO_USUARIOS))) {
+            String linea;
+            while ((linea = br.readLine()) != null) {
+                String[] partes = linea.split(",");
+                if (partes.length > 0) {
+                    usuarios.add(partes[0].trim());
+                }
+            }
+        } catch (IOException ignored) {}
+        return usuarios;
+    }
+
+    // ========================= COMANDOS DE CONSOLA DEL SERVIDOR =========================
+    private static void manejarComandoServidor(String comando) {
+        switch (comando.toLowerCase().trim()) {
+            case "/help":
+                System.out.println("=== COMANDOS DEL SERVIDOR ===");
+                System.out.println("/help - Mostrar esta ayuda");
+                System.out.println("/users - Mostrar todos los usuarios registrados");
+                System.out.println("/messages <usuario> - Ver mensajes de un usuario");
+                System.out.println("/enviar <usuario> <mensaje> - Enviar mensaje a un usuario");
+                System.out.println("/clear - Limpiar consola");
+                System.out.println("/stop - Detener servidor");
+                break;
+
+            case "/users":
+                List<String> usuarios = obtenerTodosLosUsuarios();
+                if (usuarios.isEmpty()) {
+                    System.out.println("No hay usuarios registrados.");
+                } else {
+                    System.out.println("=== USUARIOS REGISTRADOS ===");
+                    for (int i = 0; i < usuarios.size(); i++) {
+                        System.out.println((i + 1) + ". " + usuarios.get(i));
+                    }
+                    System.out.println("Total: " + usuarios.size() + " usuarios");
+                }
+                break;
+
+            case "/clear":
+                for (int i = 0; i < 50; i++) {
+                    System.out.println();
+                }
+                System.out.println("Servidor iniciado en el puerto " + PUERTO);
+                System.out.println("Escribe /help para ver los comandos disponibles");
+                break;
+
+            case "/stop":
+                System.out.println("Deteniendo servidor...");
+                System.exit(0);
+                break;
+
+            default:
+                if (comando.toLowerCase().startsWith("/messages ")) {
+                    String usuario = comando.substring(10).trim();
+                    if (existeUsuario(usuario)) {
+                        List<String> mensajes = leerInbox(usuario);
+                        if (mensajes.isEmpty()) {
+                            System.out.println("El usuario " + usuario + " no tiene mensajes.");
+                        } else {
+                            System.out.println("=== MENSAJES DE " + usuario.toUpperCase() + " ===");
+                            for (String msg : mensajes) {
+                                System.out.println(msg);
+                            }
+                        }
+                    } else {
+                        System.out.println("El usuario '" + usuario + "' no existe.");
+                    }
+                } else if (comando.toLowerCase().startsWith("/enviar ")) {
+                    // Formato: /enviar usuario mensaje
+                    String[] partes = comando.split(" ", 3);
+                    if (partes.length < 3) {
+                        System.out.println("Uso: /enviar <usuario> <mensaje>");
+                    } else {
+                        String usuario = partes[1].trim();
+                        String mensaje = partes[2].trim();
+                        if (!existeUsuario(usuario)) {
+                            System.out.println("El usuario '" + usuario + "' no existe.");
+                        } else {
+                            enviarMensajeASingle(usuario, "[SERVIDOR] " + mensaje);
+                            System.out.println("Mensaje enviado a " + usuario + ": " + mensaje);
+                        }
+                    }
+                } else {
+                    System.out.println("Comando no reconocido. Escribe /help para ver los comandos disponibles.");
+                }
+                break;
         }
     }
 }

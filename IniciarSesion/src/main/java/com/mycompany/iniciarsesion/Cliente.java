@@ -1,5 +1,4 @@
 package com.mycompany.iniciarsesion;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -19,30 +18,31 @@ public class Cliente {
         ) {
             String respuesta;
             boolean enMenuPrincipal = false;
-            
             while ((respuesta = entrada.readLine()) != null) {
                 System.out.println("Servidor: " + respuesta);
                 
                 // Detectar si estamos en el menú principal
                 if (respuesta.contains("=== MENU PRINCIPAL ===")) {
                     enMenuPrincipal = true;
-                } else if (respuesta.contains("=== JUEGO: ADIVINA EL NUMERO ===") ||
-                          respuesta.contains("Nuevo juego: Adivina el numero")) {
+                } else if (respuesta.contains("=== JUEGO: ADIVINA EL NÚMERO ===")) {
                     enMenuPrincipal = false;
                 } else if (respuesta.contains("Regresando al menu principal")) {
                     enMenuPrincipal = true;
                 }
                 
-                // Si el servidor espera una respuesta del cliente
+                // Detectar preguntas del servidor
                 if (respuesta.endsWith("?") ||
-                    respuesta.toLowerCase().contains("usuario") ||
+                    respuesta.toLowerCase().contains("introduce") ||
                     respuesta.toLowerCase().contains("contraseña") ||
-                    respuesta.toLowerCase().contains("opcion") ||
-                    respuesta.toLowerCase().contains("si/no") ||
                     respuesta.contains("Elige opcion:") ||
-                    respuesta.contains("Nuevo juego: Adivina el numero") ||
                     respuesta.contains("Intentos restantes:") ||
-                    respuesta.contains("no es un numero valido")) {
+                    respuesta.contains("no es un numero valido") ||
+                    respuesta.toLowerCase().contains("a qué usuario deseas enviar el mensaje") ||
+                    respuesta.toLowerCase().contains("escribe el mensaje") ||
+                    respuesta.contains("¿Quieres iniciar sesión (1) o registrarte (2)?") ||
+                    respuesta.contains("Adivina el numero del 1 al 10") ||
+                    (respuesta.toLowerCase().contains("incorrecto") && respuesta.contains("Intentos restantes")) ||
+                    respuesta.contains("Intenta otra vez")) {
                     
                     System.out.print("Tu respuesta: ");
                     String dato = teclado.readLine();
