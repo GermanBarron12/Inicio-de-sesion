@@ -1,8 +1,19 @@
+# Archivos y carpetas generados por NetBeans
+nbproject/private/
+build/
 dist/
+nbbuild/
+nbdist/
 *.class
-
 *.jar
 
+# Archivos temporales del sistema
+.DS_Store
+Thumbs.db
 
+# Archivos de log
+*.log
 
+# Archivos específicos de tu aplicación
 usuarios.txt
+mensajes/
