@@ -1,1 +1,8 @@
-/IniciarSesion/target/
+dist/
+*.class
+
+*.jar
+
+
+
+usuarios.txt
