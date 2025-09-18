@@ -17,7 +17,7 @@ public class Servidor {
             MENSAJES_DIR.mkdirs();
         }
 
-        // Lanzar hilo para leer comandos desde la consola del servidor
+        // Hilo para comandos del servidor
         new Thread(() -> {
             try (BufferedReader consola = new BufferedReader(new InputStreamReader(System.in))) {
                 String comando;
@@ -35,7 +35,7 @@ public class Servidor {
 
             while (true) {
                 Socket socket = serverSocket.accept();
-                System.out.println("Cliente conectado");
+                System.out.println("Cliente conectado desde: " + socket.getRemoteSocketAddress());
                 new Thread(new ManejadorCliente(socket)).start();
             }
         } catch (IOException e) {
@@ -54,83 +54,137 @@ public class Servidor {
 
         @Override
         public void run() {
+            String usuarioActual = null;
             try (
-                    BufferedReader entrada = new BufferedReader(new InputStreamReader(socket.getInputStream())); PrintWriter salida = new PrintWriter(socket.getOutputStream(), true)) {
-                salida.println("¿Quieres iniciar sesión (1) o registrarte (2)?");
-                String opcion = entrada.readLine();
-
-                String usuario = null;
-
-                if ("2".equals(opcion)) {
-                    salida.println("Introduce un nombre de usuario:");
-                    usuario = entrada.readLine();
-
-                    if (existeUsuario(usuario)) {
-                        salida.println("El usuario ya existe. Intenta con otro nombre.");
-                        return;
+                BufferedReader entrada = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                PrintWriter salida = new PrintWriter(socket.getOutputStream(), true)
+            ) {
+                
+                // Bucle principal para permitir múltiples sesiones en la misma conexión
+                boolean conectado = true;
+                while (conectado) {
+                    salida.println("¿Quieres iniciar sesión (1) o registrarte (2)? (Escribe 'exit' para desconectar)");
+                    String opcion = entrada.readLine();
+                    
+                    // Verificar si el cliente se desconectó
+                    if (opcion == null) {
+                        break;
+                    }
+                    
+                    // Permitir desconexión completa
+                    if ("exit".equalsIgnoreCase(opcion.trim())) {
+                        salida.println("¡Hasta luego! Desconectando...");
+                        conectado = false;
+                        break;
                     }
 
-                    salida.println("Introduce una contraseña:");
-                    String contrasena = entrada.readLine();
+                    usuarioActual = null;
 
-                    guardarUsuario(usuario, contrasena);
-                    salida.println("Registro exitoso. Ahora puedes iniciar sesión.");
+                    if ("2".equals(opcion)) {
+                        // Registro de usuario
+                        salida.println("Introduce un nombre de usuario:");
+                        usuarioActual = entrada.readLine();
+                        
+                        if (usuarioActual == null) break;
 
-                } else if ("1".equals(opcion)) {
-                    salida.println("Introduce tu usuario:");
-                    usuario = entrada.readLine();
-
-                    salida.println("Introduce tu contraseña:");
-                    String contrasena = entrada.readLine();
-
-                    if (validarUsuario(usuario, contrasena)) {
-                        salida.println("Inicio de sesión exitoso. Bienvenido " + usuario + "!");
-
-                        // 🔔 Notificación de mensajes pendientes
-                        List<String> mensajesPendientes = leerInbox(usuario);
-                        if (!mensajesPendientes.isEmpty()) {
-                            salida.println("Tienes " + mensajesPendientes.size() + " mensaje(s) sin leer en tu bandeja.");
-                        } else {
-                            salida.println("No tienes mensajes nuevos.");
+                        if (existeUsuario(usuarioActual)) {
+                            salida.println("El usuario ya existe. Intenta con otro nombre.");
+                            continue; // Volver al menú principal
                         }
 
-                        mostrarMenu(usuario, entrada, salida);
+                        salida.println("Introduce una contraseña:");
+                        String contrasena = entrada.readLine();
+                        
+                        if (contrasena == null) break;
+
+                        guardarUsuario(usuarioActual, contrasena);
+                        salida.println("Registro exitoso. Ahora puedes iniciar sesión.");
+
+                    } else if ("1".equals(opcion)) {
+                        // Inicio de sesión
+                        salida.println("Introduce tu usuario:");
+                        usuarioActual = entrada.readLine();
+                        
+                        if (usuarioActual == null) break;
+
+                        salida.println("Introduce tu contraseña:");
+                        String contrasena = entrada.readLine();
+                        
+                        if (contrasena == null) break;
+
+                        if (validarUsuario(usuarioActual, contrasena)) {
+                            salida.println("Inicio de sesión exitoso. Bienvenido " + usuarioActual + "!");
+                            System.out.println("Usuario " + usuarioActual + " ha iniciado sesión");
+
+                            // 🔔 Notificación de mensajes pendientes
+                            List<String> mensajesPendientes = leerInbox(usuarioActual);
+                            if (!mensajesPendientes.isEmpty()) {
+                                salida.println("Tienes " + mensajesPendientes.size() + " mensaje(s) en tu bandeja.");
+                            } else {
+                                salida.println("No tienes mensajes nuevos.");
+                            }
+
+                            // Mostrar menú y manejar la sesión del usuario
+                            mostrarMenu(usuarioActual, entrada, salida);
+                            
+                            // Después de cerrar sesión, volver al menú principal
+                            System.out.println("Usuario " + usuarioActual + " ha cerrado sesión");
+                            salida.println("Sesión cerrada. Puedes iniciar otra sesión o registrar un nuevo usuario.");
+                            usuarioActual = null; // Limpiar usuario actual
+                            
+                        } else {
+                            salida.println("Usuario o contraseña incorrectos.");
+                        }
                     } else {
-                        salida.println("Usuario o contraseña incorrectos.");
+                        salida.println("Opción no válida.");
                     }
-                } else {
-                    salida.println("Opción no válida.");
                 }
 
             } catch (IOException e) {
-                e.printStackTrace();
+                System.out.println("Error con cliente: " + e.getMessage());
+            } finally {
+                try {
+                    socket.close();
+                    if (usuarioActual != null) {
+                        System.out.println("Cliente desconectado (usuario: " + usuarioActual + ")");
+                    } else {
+                        System.out.println("Cliente desconectado");
+                    }
+                } catch (IOException e) {
+                    System.out.println("Error cerrando socket: " + e.getMessage());
+                }
             }
         }
 
         private void mostrarMenu(String usuario, BufferedReader entrada, PrintWriter salida) throws IOException {
-            boolean continuar = true;
-            while (continuar) {
+            while (true) {
                 salida.println("\n=== MENU PRINCIPAL ===");
                 salida.println("1) Ver bandeja de entrada");
                 salida.println("2) Jugar - Adivina el número");
-                salida.println("3) Salir");
+                salida.println("3) Salir (cerrar sesión)");
                 salida.println("4) Enviar mensaje a otro usuario");
                 salida.println("5) Ver todos los usuarios registrados");
+                salida.println("6) Borrar un mensaje de la bandeja");
+                salida.println("7) Borrar un mensaje enviado");
                 salida.println("Elige opcion:");
 
                 String opcion = entrada.readLine();
+                
+                // Si entrada es null, el cliente se desconectó
+                if (opcion == null) {
+                    throw new IOException("Cliente desconectado"); // Lanzar excepción para manejar desconexión
+                }
 
                 switch (opcion) {
                     case "1":
                         List<String> mensajes = leerInbox(usuario);
                         if (mensajes.isEmpty()) {
-                            salida.println("No tienes mensajes nuevos.");
+                            salida.println("No tienes mensajes.");
                         } else {
                             salida.println("Tus mensajes:");
-                            for (String msg : mensajes) {
-                                salida.println(msg);
+                            for (int i = 0; i < mensajes.size(); i++) {
+                                salida.println(i + ") " + mensajes.get(i));
                             }
-                            vaciarInbox(usuario);
                         }
                         break;
 
@@ -139,13 +193,14 @@ public class Servidor {
                         break;
 
                     case "3":
-                        salida.println("Adios!");
-                        continuar = false;
-                        break;
+                        salida.println("¡Hasta pronto " + usuario + "! Tu sesión ha sido cerrada.");
+                        return; // Salir del método para cerrar sesión
 
                     case "4":
                         salida.println("¿A qué usuario deseas enviar el mensaje?");
                         String destinatario = entrada.readLine();
+                        
+                        if (destinatario == null) throw new IOException("Cliente desconectado");
 
                         if (!existeUsuario(destinatario)) {
                             salida.println("El usuario " + destinatario + " no existe.");
@@ -154,6 +209,9 @@ public class Servidor {
                         } else {
                             salida.println("Escribe el mensaje:");
                             String mensaje = entrada.readLine();
+                            
+                            if (mensaje == null) throw new IOException("Cliente desconectado");
+                            
                             enviarMensajeASingle(destinatario,
                                     "[De " + usuario + "] " + mensaje);
                             salida.println("Mensaje enviado a " + destinatario);
@@ -174,11 +232,62 @@ public class Servidor {
                         }
                         break;
 
+                    case "6":
+                        List<String> inbox = leerInbox(usuario);
+                        if (inbox.isEmpty()) {
+                            salida.println("No tienes mensajes para borrar.");
+                        } else {
+                            salida.println("Elige el número del mensaje a borrar:");
+                            for (int i = 0; i < inbox.size(); i++) {
+                                salida.println(i + ") " + inbox.get(i));
+                            }
+                            String idxStr = entrada.readLine();
+                            
+                            if (idxStr == null) throw new IOException("Cliente desconectado");
+                            
+                            try {
+                                int idx = Integer.parseInt(idxStr);
+                                if (borrarMensaje(usuario, idx)) {
+                                    salida.println("Mensaje borrado con éxito.");
+                                } else {
+                                    salida.println("Índice inválido, no se borró nada.");
+                                }
+                            } catch (NumberFormatException e) {
+                                salida.println("Entrada inválida. No se borró nada.");
+                            }
+                        }
+                        break;
+
+                    case "7":
+                        List<String> enviados = obtenerMensajesEnviados(usuario);
+                        if (enviados.isEmpty()) {
+                            salida.println("No tienes mensajes enviados.");
+                        } else {
+                            salida.println("Elige el número del mensaje enviado a borrar:");
+                            for (int i = 0; i < enviados.size(); i++) {
+                                salida.println(i + ") " + enviados.get(i));
+                            }
+                            String idxStr = entrada.readLine();
+                            
+                            if (idxStr == null) throw new IOException("Cliente desconectado");
+                            
+                            try {
+                                int idx = Integer.parseInt(idxStr);
+                                if (borrarMensajeEnviado(usuario, idx)) {
+                                    salida.println("Mensaje enviado borrado con éxito.");
+                                } else {
+                                    salida.println("Índice inválido, no se borró nada.");
+                                }
+                            } catch (NumberFormatException e) {
+                                salida.println("Entrada inválida. No se borró nada.");
+                            }
+                        }
+                        break;
+
                     default:
                         salida.println("Opcion no valida.");
                 }
             }
-            socket.close();
         }
 
         // ========================= JUEGO =========================
@@ -220,7 +329,9 @@ public class Servidor {
 
         // ========================= USUARIOS =========================
         private void guardarUsuario(String usuario, String contrasena) {
-            try (FileWriter fw = new FileWriter(ARCHIVO_USUARIOS, true); BufferedWriter bw = new BufferedWriter(fw); PrintWriter pw = new PrintWriter(bw)) {
+            try (FileWriter fw = new FileWriter(ARCHIVO_USUARIOS, true);
+                 BufferedWriter bw = new BufferedWriter(fw);
+                 PrintWriter pw = new PrintWriter(bw)) {
                 pw.println(usuario + "," + contrasena);
             } catch (IOException e) {
                 e.printStackTrace();
@@ -268,18 +379,98 @@ public class Servidor {
             while ((l = br.readLine()) != null) {
                 msgs.add(l);
             }
-        } catch (IOException ignored) {
-        }
+        } catch (IOException ignored) {}
         return msgs;
     }
 
-    private static void vaciarInbox(String usuario) {
+    private static boolean borrarMensaje(String usuario, int indice) {
         File f = archivoInbox(usuario);
-        if (f.exists()) {
-            try (PrintWriter pw = new PrintWriter(f)) {
-                // truncar archivo
-            } catch (IOException ignored) {
+        if (!f.exists()) {
+            return false;
+        }
+
+        try {
+            List<String> mensajes = new ArrayList<>();
+            try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+                String l;
+                while ((l = br.readLine()) != null) {
+                    mensajes.add(l);
+                }
             }
+
+            if (indice < 0 || indice >= mensajes.size()) {
+                return false;
+            }
+
+            mensajes.remove(indice);
+
+            try (PrintWriter pw = new PrintWriter(new FileWriter(f))) {
+                for (String msg : mensajes) {
+                    pw.println(msg);
+                }
+            }
+            return true;
+
+        } catch (IOException e) {
+            System.out.println("Error al borrar mensaje de " + usuario + ": " + e.getMessage());
+            return false;
+        }
+    }
+
+    // 🔹 Obtener todos los mensajes enviados por un usuario
+    private static List<String> obtenerMensajesEnviados(String remitente) {
+        List<String> enviados = new ArrayList<>();
+        File[] archivos = MENSAJES_DIR.listFiles();
+        if (archivos == null) return enviados;
+
+        for (File archivo : archivos) {
+            try (BufferedReader br = new BufferedReader(new FileReader(archivo))) {
+                String linea;
+                while ((linea = br.readLine()) != null) {
+                    if (linea.contains("[De " + remitente + "]")) {
+                        enviados.add(archivo.getName().replace(".txt", "") + " <- " + linea);
+                    }
+                }
+            } catch (IOException ignored) {}
+        }
+        return enviados;
+    }
+
+    // 🔹 Borrar un mensaje enviado por un usuario en el inbox del destinatario
+    private static boolean borrarMensajeEnviado(String remitente, int indice) {
+        List<String> enviados = obtenerMensajesEnviados(remitente);
+        if (indice < 0 || indice >= enviados.size()) return false;
+
+        String seleccionado = enviados.get(indice);
+        String destinatario = seleccionado.split(" <- ")[0];
+        String contenido = seleccionado.split(" <- ")[1];
+
+        File inboxFile = archivoInbox(destinatario);
+        if (!inboxFile.exists()) return false;
+
+        try {
+            List<String> mensajes = new ArrayList<>();
+            try (BufferedReader br = new BufferedReader(new FileReader(inboxFile))) {
+                String l;
+                while ((l = br.readLine()) != null) {
+                    mensajes.add(l);
+                }
+            }
+
+            boolean removed = mensajes.removeIf(m -> m.equals(contenido));
+
+            if (removed) {
+                try (PrintWriter pw = new PrintWriter(new FileWriter(inboxFile))) {
+                    for (String msg : mensajes) {
+                        pw.println(msg);
+                    }
+                }
+            }
+
+            return removed;
+        } catch (IOException e) {
+            System.out.println("Error al borrar mensaje enviado de " + remitente + ": " + e.getMessage());
+            return false;
         }
     }
 
@@ -292,8 +483,7 @@ public class Servidor {
                     return true;
                 }
             }
-        } catch (IOException ignored) {
-        }
+        } catch (IOException ignored) {}
         return false;
     }
 
@@ -307,8 +497,7 @@ public class Servidor {
                     usuarios.add(partes[0].trim());
                 }
             }
-        } catch (IOException ignored) {
-        }
+        } catch (IOException ignored) {}
         return usuarios;
     }
 
@@ -368,7 +557,6 @@ public class Servidor {
                         System.out.println("El usuario '" + usuario + "' no existe.");
                     }
                 } else if (comando.toLowerCase().startsWith("/enviar ")) {
-                    // Formato: /enviar usuario mensaje
                     String[] partes = comando.split(" ", 3);
                     if (partes.length < 3) {
                         System.out.println("Uso: /enviar <usuario> <mensaje>");
