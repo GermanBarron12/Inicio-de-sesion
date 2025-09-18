@@ -55,9 +55,7 @@ public class Servidor {
         @Override
         public void run() {
             try (
-                BufferedReader entrada = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                PrintWriter salida = new PrintWriter(socket.getOutputStream(), true)
-            ) {
+                    BufferedReader entrada = new BufferedReader(new InputStreamReader(socket.getInputStream())); PrintWriter salida = new PrintWriter(socket.getOutputStream(), true)) {
                 salida.println("¿Quieres iniciar sesión (1) o registrarte (2)?");
                 String opcion = entrada.readLine();
 
@@ -87,6 +85,15 @@ public class Servidor {
 
                     if (validarUsuario(usuario, contrasena)) {
                         salida.println("Inicio de sesión exitoso. Bienvenido " + usuario + "!");
+
+                        // 🔔 Notificación de mensajes pendientes
+                        List<String> mensajesPendientes = leerInbox(usuario);
+                        if (!mensajesPendientes.isEmpty()) {
+                            salida.println("Tienes " + mensajesPendientes.size() + " mensaje(s) sin leer en tu bandeja.");
+                        } else {
+                            salida.println("No tienes mensajes nuevos.");
+                        }
+
                         mostrarMenu(usuario, entrada, salida);
                     } else {
                         salida.println("Usuario o contraseña incorrectos.");
@@ -185,7 +192,9 @@ public class Servidor {
 
             while (intentos < 3) {
                 String entradaUsuario = entrada.readLine();
-                if (entradaUsuario == null) break;
+                if (entradaUsuario == null) {
+                    break;
+                }
 
                 try {
                     int intento = Integer.parseInt(entradaUsuario);
@@ -195,9 +204,9 @@ public class Servidor {
                     } else {
                         intentos++;
                         if (intentos < 3) {
-                            salida.println("Incorrecto. El numero secreto es " +
-                                    (intento < numeroSecreto ? "mayor" : "menor") +
-                                    ". Intentos restantes: " + (3 - intentos));
+                            salida.println("Incorrecto. El numero secreto es "
+                                    + (intento < numeroSecreto ? "mayor" : "menor")
+                                    + ". Intentos restantes: " + (3 - intentos));
                         } else {
                             salida.println("No lograste adivinar. El numero era: " + numeroSecreto);
                         }
@@ -211,9 +220,7 @@ public class Servidor {
 
         // ========================= USUARIOS =========================
         private void guardarUsuario(String usuario, String contrasena) {
-            try (FileWriter fw = new FileWriter(ARCHIVO_USUARIOS, true);
-                 BufferedWriter bw = new BufferedWriter(fw);
-                 PrintWriter pw = new PrintWriter(bw)) {
+            try (FileWriter fw = new FileWriter(ARCHIVO_USUARIOS, true); BufferedWriter bw = new BufferedWriter(fw); PrintWriter pw = new PrintWriter(bw)) {
                 pw.println(usuario + "," + contrasena);
             } catch (IOException e) {
                 e.printStackTrace();
@@ -253,13 +260,16 @@ public class Servidor {
     private static List<String> leerInbox(String usuario) {
         List<String> msgs = new ArrayList<>();
         File f = archivoInbox(usuario);
-        if (!f.exists()) return msgs;
+        if (!f.exists()) {
+            return msgs;
+        }
         try (BufferedReader br = new BufferedReader(new FileReader(f))) {
             String l;
             while ((l = br.readLine()) != null) {
                 msgs.add(l);
             }
-        } catch (IOException ignored) {}
+        } catch (IOException ignored) {
+        }
         return msgs;
     }
 
@@ -268,7 +278,8 @@ public class Servidor {
         if (f.exists()) {
             try (PrintWriter pw = new PrintWriter(f)) {
                 // truncar archivo
-            } catch (IOException ignored) {}
+            } catch (IOException ignored) {
+            }
         }
     }
 
@@ -277,9 +288,12 @@ public class Servidor {
             String linea;
             while ((linea = br.readLine()) != null) {
                 String[] partes = linea.split(",");
-                if (partes.length > 0 && partes[0].trim().equals(usuario)) return true;
+                if (partes.length > 0 && partes[0].trim().equals(usuario)) {
+                    return true;
+                }
             }
-        } catch (IOException ignored) {}
+        } catch (IOException ignored) {
+        }
         return false;
     }
 
@@ -293,7 +307,8 @@ public class Servidor {
                     usuarios.add(partes[0].trim());
                 }
             }
-        } catch (IOException ignored) {}
+        } catch (IOException ignored) {
+        }
         return usuarios;
     }
 
