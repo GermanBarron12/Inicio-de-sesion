@@ -1,5 +1,12 @@
 german,ger123
 aurelio,aure123
+<<<<<<< HEAD
 german2,ger123
 jona,jona123
 yaelito,yael123
+=======
+=======
+>>>>>>> feature/registro-login
+2,german2
+german2,ger123
+>>>>>>> dev
