@@ -170,7 +170,7 @@ public class Servidor {
 
                 String opcion = entrada.readLine();
                 
-                // Si entrada es null, el cliente se desconectó
+                // Si entrada es null, el cliente se desconectó 
                 if (opcion == null) {
                     throw new IOException("Cliente desconectado"); // Lanzar excepción para manejar desconexión
                 }
@@ -685,7 +685,7 @@ public class Servidor {
                             System.out.println("   - Eliminado su archivo de mensajes");
                             System.out.println("   - Eliminados todos los mensajes que envio a otros usuarios");
                         } else {
-                            System.out.println("❌ No se pudo eliminar el usuario '" + usuario + "'. Verifica que exista.");
+                            System.out.println("No se pudo eliminar el usuario '" + usuario + "'. Verifica que exista.");
                         }
                     }
                 } else {
