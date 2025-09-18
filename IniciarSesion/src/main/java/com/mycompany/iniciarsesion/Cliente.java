@@ -18,7 +18,7 @@ public class Cliente {
             BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in))
         ) {
             System.out.println("=== CONECTADO AL SERVIDOR ===");
-            System.out.println("Para desconectarte completamente, escribe 'exit' cuando se te pregunte sobre iniciar sesión o registrarte.");
+            System.out.println("Para desconectarte completamente, escribe 'exit' cuando se te pregunte sobre iniciar sesion o registrarte.");
             System.out.println();
             
             String respuesta;
@@ -32,7 +32,7 @@ public class Cliente {
                 if (respuesta.contains("=== MENU PRINCIPAL ===")) {
                     enMenuPrincipal = true;
                     enJuego = false;
-                } else if (respuesta.contains("=== JUEGO: ADIVINA EL NÚMERO ===")) {
+                } else if (respuesta.contains("=== JUEGO: ADIVINA EL NUMERO ===")) {
                     enMenuPrincipal = false;
                     enJuego = true;
                 } else if (respuesta.contains("Regresando al menu principal")) {
@@ -41,12 +41,12 @@ public class Cliente {
                 } else if (respuesta.contains("¡Hasta luego! Desconectando...")) {
                     System.out.println("Cliente: Desconectado del servidor.");
                     break;
-                } else if (respuesta.contains("Tu sesión ha sido cerrada") || 
-                          respuesta.contains("Sesión cerrada") ||
+                } else if (respuesta.contains("Tu sesion ha sido cerrada") || 
+                          respuesta.contains("Sesion cerrada") ||
                           respuesta.contains("¡Hasta pronto")) {
                     enMenuPrincipal = false;
                     enJuego = false;
-                    System.out.println("Cliente: Sesión cerrada. Esperando menú de conexión...");
+                    System.out.println("Cliente: Sesion cerrada. Esperando menu de conexión...");
                 }
                 
                 // Detectar cuándo el servidor espera una respuesta
@@ -57,14 +57,14 @@ public class Cliente {
                     respuesta.contains("Elige opcion:") ||
                     respuesta.contains("Intentos restantes:") ||
                     respuesta.contains("no es un numero valido") ||
-                    respuesta.toLowerCase().contains("a qué usuario deseas enviar el mensaje") ||
+                    respuesta.toLowerCase().contains("a que usuario deseas enviar el mensaje") ||
                     respuesta.toLowerCase().contains("escribe el mensaje") ||
-                    respuesta.contains("¿Quieres iniciar sesión (1) o registrarte (2)?") ||
+                    respuesta.contains("¿Quieres iniciar sesion (1) o registrarte (2)?") ||
                     respuesta.contains("Adivina el numero del 1 al 10") ||
                     (respuesta.toLowerCase().contains("incorrecto") && respuesta.contains("Intentos restantes")) ||
                     respuesta.contains("Intenta otra vez") ||
-                    respuesta.contains("Elige el número del mensaje a borrar:") ||
-                    respuesta.contains("Elige el número del mensaje enviado a borrar:") ||
+                    respuesta.contains("Elige el numero del mensaje a borrar:") ||
+                    respuesta.contains("Elige el numero del mensaje enviado a borrar:") ||
                     respuesta.contains("(Escribe 'exit' para desconectar)");
                 
                 if (necesitaRespuesta) {
@@ -86,15 +86,15 @@ public class Cliente {
                         // No cerramos la conexión, solo esperamos la respuesta del servidor
                         // El servidor nos dirá que la sesión se cerró y volveremos al menú principal
                         enMenuPrincipal = false;
-                        System.out.println("Cliente: Cerrando sesión...");
+                        System.out.println("Cliente: Cerrando sesion...");
                     }
                 }
             }
             
         } catch (IOException e) {
-            System.out.println("Error de conexión: " + e.getMessage());
+            System.out.println("Error de conexion: " + e.getMessage());
         }
         
-        System.out.println("Cliente: Conexión terminada.");
+        System.out.println("Cliente: Conexion terminada.");
     }
 }

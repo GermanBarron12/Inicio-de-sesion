@@ -2,5 +2,6 @@ german,ger123
 <<<<<<< HEAD
 aurelio,aure123
 =======
-german2,ger123
 >>>>>>> feature/registro-login
+2,german2
+german2,ger123
