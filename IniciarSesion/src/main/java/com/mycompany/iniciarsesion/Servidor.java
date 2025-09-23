@@ -10,11 +10,16 @@ public class Servidor {
     private static final int PUERTO = 5000;
     private static final String ARCHIVO_USUARIOS = "usuarios.txt";
     private static final File MENSAJES_DIR = new File("mensajes");
+    private static final File BLOQUEOS_DIR = new File("bloqueos");
 
     public static void main(String[] args) throws IOException {
 
         if (!MENSAJES_DIR.exists()) {
             MENSAJES_DIR.mkdirs();
+        }
+
+        if (!BLOQUEOS_DIR.exists()) {
+            BLOQUEOS_DIR.mkdirs();
         }
 
         // Hilo para comandos del servidor
@@ -60,20 +65,20 @@ public class Servidor {
                 PrintWriter salida = new PrintWriter(socket.getOutputStream(), true)
             ) {
                 
-                // Bucle principal para permitir múltiples sesiones en la misma conexión
+                // Bucle principal para permitir multiples sesiones en la misma conexion
                 boolean conectado = true;
                 while (conectado) {
-                    salida.println("¿Quieres iniciar sesion (1) o registrarte (2)? (Escribe 'exit' para desconectar)");
+                    salida.println("Quieres iniciar sesion (1) o registrarte (2)? (Escribe 'exit' para desconectar)");
                     String opcion = entrada.readLine();
                     
-                    // Verificar si el cliente se desconectó
+                    // Verificar si el cliente se desconecto
                     if (opcion == null) {
                         break;
                     }
                     
-                    // Permitir desconexión completa
+                    // Permitir desconexion completa
                     if ("exit".equalsIgnoreCase(opcion.trim())) {
-                        salida.println("¡Hasta luego! Desconectando...");
+                        salida.println("Hasta luego! Desconectando...");
                         conectado = false;
                         break;
                     }
@@ -89,34 +94,34 @@ public class Servidor {
 
                         if (existeUsuario(usuarioActual)) {
                             salida.println("El usuario ya existe. Intenta con otro nombre.");
-                            continue; // Volver al menú principal
+                            continue; // Volver al menu principal
                         }
 
-                        salida.println("Introduce una contraseña:");
+                        salida.println("Introduce una contrasena:");
                         String contrasena = entrada.readLine();
                         
                         if (contrasena == null) break;
 
                         guardarUsuario(usuarioActual, contrasena);
-                        salida.println("Registro exitoso. Ahora puedes iniciar sesión.");
+                        salida.println("Registro exitoso. Ahora puedes iniciar sesion.");
 
                     } else if ("1".equals(opcion)) {
-                        // Inicio de sesión
+                        // Inicio de sesion
                         salida.println("Introduce tu usuario:");
                         usuarioActual = entrada.readLine();
                         
                         if (usuarioActual == null) break;
 
-                        salida.println("Introduce tu contraseña:");
+                        salida.println("Introduce tu contrasena:");
                         String contrasena = entrada.readLine();
                         
                         if (contrasena == null) break;
 
                         if (validarUsuario(usuarioActual, contrasena)) {
-                            salida.println("Inicio de sesión exitoso. Bienvenido " + usuarioActual + "!");
-                            System.out.println("Usuario " + usuarioActual + " ha iniciado sesión");
+                            salida.println("Inicio de sesion exitoso. Bienvenido " + usuarioActual + "!");
+                            System.out.println("Usuario " + usuarioActual + " ha iniciado sesion");
 
-                            // 🔔 Notificación de mensajes pendientes
+                            // Notificacion de mensajes pendientes
                             List<String> mensajesPendientes = leerInbox(usuarioActual);
                             if (!mensajesPendientes.isEmpty()) {
                                 salida.println("Tienes " + mensajesPendientes.size() + " mensaje(s) en tu bandeja.");
@@ -124,19 +129,19 @@ public class Servidor {
                                 salida.println("No tienes mensajes nuevos.");
                             }
 
-                            // Mostrar menú y manejar la sesión del usuario
+                            // Mostrar menu y manejar la sesion del usuario
                             mostrarMenu(usuarioActual, entrada, salida);
                             
-                            // Después de cerrar sesión, volver al menú principal
+                            // Despues de cerrar sesion, volver al menu principal
                             System.out.println("Usuario " + usuarioActual + " ha cerrado sesion");
-                            salida.println("Sesion cerrada. Puedes iniciar otra sesión o registrar un nuevo usuario.");
+                            salida.println("Sesion cerrada. Puedes iniciar otra sesion o registrar un nuevo usuario.");
                             usuarioActual = null; // Limpiar usuario actual
                             
                         } else {
-                            salida.println("Usuario o contraseña incorrectos.");
+                            salida.println("Usuario o contrasena incorrectos.");
                         }
                     } else {
-                        salida.println("Opcion no válida.");
+                        salida.println("Opcion no valida.");
                     }
                 }
 
@@ -166,13 +171,16 @@ public class Servidor {
                 salida.println("5) Ver todos los usuarios registrados");
                 salida.println("6) Borrar un mensaje de la bandeja");
                 salida.println("7) Borrar un mensaje enviado");
+                salida.println("8) Bloquear un usuario");
+                salida.println("9) Desbloquear un usuario");
+                salida.println("10) Ver usuarios bloqueados");
                 salida.println("Elige opcion:");
 
                 String opcion = entrada.readLine();
                 
-                // Si entrada es null, el cliente se desconectó
+                // Si entrada es null, el cliente se desconecto
                 if (opcion == null) {
-                    throw new IOException("Cliente desconectado"); // Lanzar excepción para manejar desconexión
+                    throw new IOException("Cliente desconectado"); // Lanzar excepcion para manejar desconexion
                 }
 
                 switch (opcion) {
@@ -193,11 +201,11 @@ public class Servidor {
                         break;
 
                     case "3":
-                        salida.println("¡Hasta pronto " + usuario + "! Tu sesion ha sido cerrada.");
-                        return; // Salir del método para cerrar sesión
+                        salida.println("Hasta pronto " + usuario + "! Tu sesion ha sido cerrada.");
+                        return; // Salir del metodo para cerrar sesion
 
                     case "4":
-                        salida.println("¿A que usuario deseas enviar el mensaje?");
+                        salida.println("A que usuario deseas enviar el mensaje?");
                         String destinatario = entrada.readLine();
                         
                         if (destinatario == null) throw new IOException("Cliente desconectado");
@@ -206,6 +214,12 @@ public class Servidor {
                             salida.println("El usuario " + destinatario + " no existe.");
                         } else if (destinatario.equals(usuario)) {
                             salida.println("No puedes enviarte mensajes a ti mismo.");
+                        } else if (estaBloqueado(destinatario, usuario)) {
+                            // destinatario tiene bloqueado al remitente
+                            salida.println("No puedes enviar mensajes. El usuario " + destinatario + " te ha bloqueado.");
+                        } else if (estaBloqueado(usuario, destinatario)) {
+                            // remitente tiene bloqueado al destinatario
+                            salida.println("No puedes enviar mensajes a " + destinatario + " porque lo tienes bloqueado.");
                         } else {
                             salida.println("Escribe el mensaje:");
                             String mensaje = entrada.readLine();
@@ -276,10 +290,50 @@ public class Servidor {
                                 if (borrarMensajeEnviado(usuario, idx)) {
                                     salida.println("Mensaje enviado borrado con exito.");
                                 } else {
-                                    salida.println("Índice inválido, no se borró nada.");
+                                    salida.println("Indice invalido, no se borro nada.");
                                 }
                             } catch (NumberFormatException e) {
                                 salida.println("Entrada invalida. No se borro nada.");
+                            }
+                        }
+                        break;
+
+                    // ---------- Opciones de bloqueo ----------
+                    case "8":
+                        salida.println("Que usuario deseas bloquear?");
+                        String usuarioBloquear = entrada.readLine();
+                        if (usuarioBloquear == null) throw new IOException("Cliente desconectado");
+
+                        if (!existeUsuario(usuarioBloquear)) {
+                            salida.println("El usuario " + usuarioBloquear + " no existe.");
+                        } else if (usuarioBloquear.equals(usuario)) {
+                            salida.println("No puedes bloquearte a ti mismo.");
+                        } else {
+                            bloquearUsuario(usuario, usuarioBloquear);
+                            salida.println("Has bloqueado a " + usuarioBloquear);
+                        }
+                        break;
+
+                    case "9":
+                        salida.println("Que usuario deseas desbloquear?");
+                        String usuarioDesbloquear = entrada.readLine();
+                        if (usuarioDesbloquear == null) throw new IOException("Cliente desconectado");
+
+                        if (desbloquearUsuario(usuario, usuarioDesbloquear)) {
+                            salida.println("Has desbloqueado a " + usuarioDesbloquear);
+                        } else {
+                            salida.println("Ese usuario no estaba bloqueado.");
+                        }
+                        break;
+
+                    case "10":
+                        List<String> bloqueados = obtenerUsuariosBloqueados(usuario);
+                        if (bloqueados.isEmpty()) {
+                            salida.println("No tienes usuarios bloqueados.");
+                        } else {
+                            salida.println("Usuarios bloqueados:");
+                            for (String b : bloqueados) {
+                                salida.println("- " + b);
                             }
                         }
                         break;
@@ -308,7 +362,7 @@ public class Servidor {
                 try {
                     int intento = Integer.parseInt(entradaUsuario);
                     if (intento == numeroSecreto) {
-                        salida.println("¡Correcto! El numero era " + numeroSecreto);
+                        salida.println("Correcto! El numero era " + numeroSecreto);
                         return;
                     } else {
                         intentos++;
@@ -424,7 +478,7 @@ public class Servidor {
         }
     }
 
-    // 🔹 Obtener todos los mensajes enviados por un usuario
+    // Obtener todos los mensajes enviados por un usuario
     private static List<String> obtenerMensajesEnviados(String remitente) {
         List<String> enviados = new ArrayList<>();
         File[] archivos = MENSAJES_DIR.listFiles();
@@ -443,7 +497,7 @@ public class Servidor {
         return enviados;
     }
 
-    // 🔹 Borrar un mensaje enviado por un usuario en el inbox del destinatario
+    // Borrar un mensaje enviado por un usuario en el inbox del destinatario
     private static boolean borrarMensajeEnviado(String remitente, int indice) {
         List<String> enviados = obtenerMensajesEnviados(remitente);
         if (indice < 0 || indice >= enviados.size()) return false;
@@ -510,12 +564,13 @@ public class Servidor {
         return usuarios;
     }
 
-    // ========================= FUNCIÓN PARA ELIMINAR USUARIO =========================
+    // ========================= FUNCION PARA ELIMINAR USUARIO =========================
     /**
      * Elimina un usuario del sistema completamente:
      * - Lo remueve del archivo usuarios.txt
      * - Borra su archivo de mensajes (inbox)
-     * - Elimina todos los mensajes que envió a otros usuarios
+     * - Elimina todos los mensajes que envio a otros usuarios
+     * - Elimina su archivo de bloqueos y lo remueve de los bloqueos de otros
      */
     private static boolean eliminarUsuario(String usuario) {
         if (!existeUsuario(usuario)) {
@@ -548,8 +603,11 @@ public class Servidor {
                 archivoInboxUsuario.delete();
             }
 
-            // 3. Eliminar todos los mensajes que este usuario envió a otros usuarios
+            // 3. Eliminar todos los mensajes que este usuario envio a otros usuarios
             eliminarMensajesEnviadosPorUsuario(usuario);
+
+            // 4. Eliminar bloqueos relacionados: eliminar su archivo de bloqueos y quitar su nombre de otros archivos
+            eliminarBloqueosDeUsuario(usuario);
 
             return true;
 
@@ -560,7 +618,7 @@ public class Servidor {
     }
 
     /**
-     * Elimina todos los mensajes enviados por un usuario específico de todos los inboxes
+     * Elimina todos los mensajes enviados por un usuario especifico de todos los inboxes
      */
     private static void eliminarMensajesEnviadosPorUsuario(String remitente) {
         File[] archivos = MENSAJES_DIR.listFiles();
@@ -585,7 +643,7 @@ public class Servidor {
                         }
                     }
 
-                    // Si se eliminó algún mensaje, reescribir el archivo
+                    // Si se elimino algun mensaje, reescribir el archivo
                     if (seEliminoAlgo) {
                         try (PrintWriter pw = new PrintWriter(new FileWriter(archivo))) {
                             for (String mensaje : mensajesFiltrados) {
@@ -600,6 +658,141 @@ public class Servidor {
                     System.out.println("Error eliminando mensajes de " + remitente + " en " + 
                                      archivo.getName() + ": " + e.getMessage());
                 }
+            }
+        }
+    }
+
+    // ========================= FUNCIONES DE BLOQUEO =========================
+
+    private static File archivoBloqueos(String usuario) {
+        return new File(BLOQUEOS_DIR, usuario + ".txt");
+    }
+
+    /**
+     * Anade 'bloqueado' al archivo de bloqueos de 'usuario' (si no esta ya)
+     */
+    private static void bloquearUsuario(String usuario, String bloqueado) {
+        try {
+            File f = archivoBloqueos(usuario);
+            Set<String> set = new LinkedHashSet<>();
+            if (f.exists()) {
+                try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+                    String linea;
+                    while ((linea = br.readLine()) != null) {
+                        if (!linea.trim().isEmpty()) set.add(linea.trim());
+                    }
+                }
+            }
+            if (!set.contains(bloqueado)) {
+                try (BufferedWriter bw = new BufferedWriter(new FileWriter(f, true))) {
+                    bw.write(bloqueado);
+                    bw.newLine();
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Error bloqueando usuario: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Elimina 'bloqueado' del archivo de bloqueos de 'usuario' si existe.
+     * Devuelve true si se elimino.
+     */
+    private static boolean desbloquearUsuario(String usuario, String bloqueado) {
+        File f = archivoBloqueos(usuario);
+        if (!f.exists()) return false;
+
+        try {
+            List<String> lista = new ArrayList<>();
+            boolean eliminado = false;
+            try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+                String linea;
+                while ((linea = br.readLine()) != null) {
+                    String t = linea.trim();
+                    if (!t.isEmpty() && !t.equals(bloqueado)) {
+                        lista.add(t);
+                    } else if (t.equals(bloqueado)) {
+                        eliminado = true;
+                    }
+                }
+            }
+
+            try (PrintWriter pw = new PrintWriter(new FileWriter(f))) {
+                for (String u : lista) {
+                    pw.println(u);
+                }
+            }
+
+            return eliminado;
+        } catch (IOException e) {
+            System.out.println("Error desbloqueando usuario: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Retorna la lista de usuarios que 'usuario' ha bloqueado.
+     */
+    private static List<String> obtenerUsuariosBloqueados(String usuario) {
+        List<String> bloqueados = new ArrayList<>();
+        File f = archivoBloqueos(usuario);
+        if (!f.exists()) return bloqueados;
+
+        try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+            String linea;
+            while ((linea = br.readLine()) != null) {
+                String t = linea.trim();
+                if (!t.isEmpty()) bloqueados.add(t);
+            }
+        } catch (IOException ignored) {}
+        return bloqueados;
+    }
+
+    /**
+     * Verifica si 'usuario' tiene bloqueado a 'posibleBloqueado'
+     */
+    private static boolean estaBloqueado(String usuario, String posibleBloqueado) {
+        List<String> bloqueados = obtenerUsuariosBloqueados(usuario);
+        return bloqueados.contains(posibleBloqueado);
+    }
+
+    /**
+     * Elimina el archivo de bloqueos del usuario y lo remueve de los archivos de otros usuarios.
+     */
+    private static void eliminarBloqueosDeUsuario(String usuario) {
+        // eliminar su propio archivo de bloqueos
+        File f = archivoBloqueos(usuario);
+        if (f.exists()) {
+            f.delete();
+        }
+
+        // eliminar su nombre de los archivos de bloqueos de otros usuarios
+        File[] archivos = BLOQUEOS_DIR.listFiles();
+        if (archivos == null) return;
+
+        for (File archivo : archivos) {
+            if (!archivo.isFile()) continue;
+            try {
+                List<String> lista = new ArrayList<>();
+                boolean modificado = false;
+                try (BufferedReader br = new BufferedReader(new FileReader(archivo))) {
+                    String linea;
+                    while ((linea = br.readLine()) != null) {
+                        String t = linea.trim();
+                        if (!t.isEmpty() && !t.equals(usuario)) {
+                            lista.add(t);
+                        } else if (t.equals(usuario)) {
+                            modificado = true;
+                        }
+                    }
+                }
+                if (modificado) {
+                    try (PrintWriter pw = new PrintWriter(new FileWriter(archivo))) {
+                        for (String u : lista) pw.println(u);
+                    }
+                }
+            } catch (IOException e) {
+                System.out.println("Error actualizando bloqueos en " + archivo.getName() + ": " + e.getMessage());
             }
         }
     }
@@ -684,8 +877,9 @@ public class Servidor {
                             System.out.println("   - Removido del archivo de usuarios");
                             System.out.println("   - Eliminado su archivo de mensajes");
                             System.out.println("   - Eliminados todos los mensajes que envio a otros usuarios");
+                            System.out.println("   - Eliminados bloqueos relacionados");
                         } else {
-                            System.out.println("❌ No se pudo eliminar el usuario '" + usuario + "'. Verifica que exista.");
+                            System.out.println("No se pudo eliminar el usuario '" + usuario + "'. Verifica que exista.");
                         }
                     }
                 } else {
