@@ -116,7 +116,7 @@ public class Servidor {
                             salida.println("Inicio de sesión exitoso. Bienvenido " + usuarioActual + "!");
                             System.out.println("Usuario " + usuarioActual + " ha iniciado sesión");
 
-                            // 🔔 Notificación de mensajes pendientes
+                            // Notificación de mensajes pendientes
                             List<String> mensajesPendientes = leerInbox(usuarioActual);
                             if (!mensajesPendientes.isEmpty()) {
                                 salida.println("Tienes " + mensajesPendientes.size() + " mensaje(s) en tu bandeja.");
@@ -424,7 +424,7 @@ public class Servidor {
         }
     }
 
-    // 🔹 Obtener todos los mensajes enviados por un usuario
+    //  Obtener todos los mensajes enviados por un usuario
     private static List<String> obtenerMensajesEnviados(String remitente) {
         List<String> enviados = new ArrayList<>();
         File[] archivos = MENSAJES_DIR.listFiles();
@@ -443,7 +443,7 @@ public class Servidor {
         return enviados;
     }
 
-    // 🔹 Borrar un mensaje enviado por un usuario en el inbox del destinatario
+    //  Borrar un mensaje enviado por un usuario en el inbox del destinatario
     private static boolean borrarMensajeEnviado(String remitente, int indice) {
         List<String> enviados = obtenerMensajesEnviados(remitente);
         if (indice < 0 || indice >= enviados.size()) return false;
@@ -511,13 +511,7 @@ public class Servidor {
     }
 
     // ========================= FUNCIÓN PARA ELIMINAR USUARIO =========================
-    /**
-     * Elimina un usuario del sistema completamente:
-     * - Lo remueve del archivo usuarios.txt
-     * - Borra su archivo de mensajes (inbox)
-     * - Elimina todos los mensajes que envió a otros usuarios
-     */
-    private static boolean eliminarUsuario(String usuario) {
+       private static boolean eliminarUsuario(String usuario) {
         if (!existeUsuario(usuario)) {
             return false;
         }
