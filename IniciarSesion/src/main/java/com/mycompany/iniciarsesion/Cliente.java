@@ -1,100 +1,72 @@
 package com.mycompany.iniciarsesion;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.Socket;
+import java.util.Scanner;
 
 public class Cliente {
+
     private static final String HOST = "localhost";
     private static final int PUERTO = 5000;
-    
+
     public static void main(String[] args) {
-        try (
-            Socket socket = new Socket(HOST, PUERTO);
-            BufferedReader entrada = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            PrintWriter salida = new PrintWriter(socket.getOutputStream(), true);
-            BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in))
-        ) {
+        try (Socket socket = new Socket(HOST, PUERTO);
+             BufferedReader entrada = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+             PrintWriter salida = new PrintWriter(socket.getOutputStream(), true);
+             Scanner scanner = new Scanner(System.in)) {
+
             System.out.println("=== CONECTADO AL SERVIDOR ===");
-            System.out.println("Para desconectarte completamente, escribe 'exit' cuando se te pregunte sobre iniciar sesion o registrarte.");
-            System.out.println();
-            
-            String respuesta;
-            boolean enMenuPrincipal = false;
-            boolean enJuego = false;
-            
-            while ((respuesta = entrada.readLine()) != null) {
-                System.out.println("Servidor: " + respuesta);
+
+            // Hilo para escuchar mensajes del servidor
+            Thread hiloEscucha = new Thread(() -> {
+                try {
+                    String mensaje;
+                    while ((mensaje = entrada.readLine()) != null) {
+                        System.out.println(mensaje);
+                        
+                        // Si el servidor pide una opcion, mostrar prompt
+                        if (mensaje.contains("Elige opcion:") || 
+                            mensaje.contains("Elige una opcion:") || 
+                            mensaje.contains("Introduce") || 
+                            mensaje.contains("Escribe") ||
+                            mensaje.contains("A que usuario") ||
+                            mensaje.contains("Que usuario") ||
+                            mensaje.contains("Adivina el numero") ||
+                            mensaje.endsWith("?")) {
+                            System.out.print("> ");
+                        }
+                    }
+                } catch (IOException e) {
+                    System.out.println("Conexion cerrada por el servidor.");
+                }
+            });
+            hiloEscucha.setDaemon(true); // Hacer que el hilo se cierre cuando termine main
+            hiloEscucha.start();
+
+            // Permitir un poco de tiempo para que el servidor envie el primer mensaje
+            Thread.sleep(100);
+
+            // Bucle principal para enviar datos al servidor
+            String input;
+            while ((input = scanner.nextLine()) != null) {
+                salida.println(input);
                 
-                // Detectar diferentes estados
-                if (respuesta.contains("=== MENU PRINCIPAL ===")) {
-                    enMenuPrincipal = true;
-                    enJuego = false;
-                } else if (respuesta.contains("=== JUEGO: ADIVINA EL NUMERO ===")) {
-                    enMenuPrincipal = false;
-                    enJuego = true;
-                } else if (respuesta.contains("Regresando al menu principal")) {
-                    enMenuPrincipal = true;
-                    enJuego = false;
-                } else if (respuesta.contains("¡Hasta luego! Desconectando...")) {
-                    System.out.println("Cliente: Desconectado del servidor.");
+                // Si el usuario escribio 'exit', terminar
+                if ("exit".equalsIgnoreCase(input.trim())) {
                     break;
-                } else if (respuesta.contains("Tu sesion ha sido cerrada") || 
-                          respuesta.contains("Sesion cerrada") ||
-                          respuesta.contains("¡Hasta pronto")) {
-                    enMenuPrincipal = false;
-                    enJuego = false;
-                    System.out.println("Cliente: Sesion cerrada. Esperando menu de conexión...");
                 }
                 
-                // Detectar cuándo el servidor espera una respuesta
-                boolean necesitaRespuesta = 
-                    respuesta.endsWith("?") ||
-                    respuesta.toLowerCase().contains("introduce") ||
-                    respuesta.toLowerCase().contains("contraseña") ||
-                    respuesta.contains("Elige opcion:") ||
-                    respuesta.contains("Intentos restantes:") ||
-                    respuesta.contains("no es un numero valido") ||
-                    respuesta.toLowerCase().contains("a que usuario deseas enviar el mensaje") ||
-                    respuesta.toLowerCase().contains("escribe el mensaje") ||
-                    respuesta.contains("¿Quieres iniciar sesion (1) o registrarte (2)?") ||
-                    respuesta.contains("Adivina el numero del 1 al 10") ||
-                    (respuesta.toLowerCase().contains("incorrecto") && respuesta.contains("Intentos restantes")) ||
-                    respuesta.contains("Intenta otra vez") ||
-                    respuesta.contains("Elige el numero del mensaje a borrar:") ||
-                    respuesta.contains("Elige el numero del mensaje enviado a borrar:") ||
-                    respuesta.contains("(Escribe 'exit' para desconectar)");
-                
-                if (necesitaRespuesta) {
-                    System.out.print("Tu respuesta: ");
-                    String dato = teclado.readLine();
-                    
-                    // Verificar si el usuario quiere salir completamente
-                    if ("exit".equalsIgnoreCase(dato.trim())) {
-                        salida.println(dato);
-                        // Esperar confirmación del servidor antes de cerrar
-                        continue;
-                    }
-                    
-                    salida.println(dato);
-                    salida.flush();
-                    
-                    // Si estamos en el menú principal y el usuario elige "3" (Salir)
-                    if ("3".equals(dato.trim()) && enMenuPrincipal && respuesta.contains("Elige opcion:")) {
-                        // No cerramos la conexión, solo esperamos la respuesta del servidor
-                        // El servidor nos dirá que la sesión se cerró y volveremos al menú principal
-                        enMenuPrincipal = false;
-                        System.out.println("Cliente: Cerrando sesion...");
-                    }
+                // Si el usuario eligio salir (opcion 3) desde el menu, esperar confirmacion y luego continuar
+                if ("3".equals(input.trim())) {
+                    Thread.sleep(500); // Dar tiempo para recibir mensaje del servidor
+                    System.out.print("> "); // Mostrar prompt para la siguiente interaccion
                 }
             }
-            
+
         } catch (IOException e) {
-            System.out.println("Error de conexion: " + e.getMessage());
+            System.out.println("Error al conectar con el servidor: " + e.getMessage());
+        } catch (InterruptedException e) {
+            System.out.println("Conexion interrumpida.");
         }
-        
-        System.out.println("Cliente: Conexion terminada.");
     }
 }
