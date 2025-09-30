@@ -5,6 +5,16 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.*;
 
+class MensajeInfo {
+    String contenido;
+    String remitente;
+    
+    public MensajeInfo(String contenido, String remitente) {
+        this.contenido = contenido;
+        this.remitente = remitente;
+    }
+}
+
 public class Servidor {
 
     private static final int PUERTO = 5000;
@@ -23,7 +33,6 @@ public class Servidor {
             BLOQUEOS_DIR.mkdirs();
         }
 
-        // Hilo para comandos del servidor
         new Thread(() -> {
             try (BufferedReader consola = new BufferedReader(new InputStreamReader(System.in))) {
                 String comando;
@@ -49,7 +58,6 @@ public class Servidor {
         }
     }
 
-    // ========================= MANEJADOR DE CLIENTES =========================
     private static class ManejadorCliente implements Runnable {
 
         private Socket socket;
@@ -67,18 +75,15 @@ public class Servidor {
                 entrada = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 salida = new PrintWriter(socket.getOutputStream(), true);
 
-                // Bucle principal para permitir multiples sesiones en la misma conexion
                 boolean conectado = true;
                 while (conectado) {
                     salida.println("Quieres iniciar sesion (1) o registrarte (2)? (Escribe 'exit' para desconectar)");
                     String opcion = entrada.readLine();
 
-                    // Verificar si el cliente se desconecto
                     if (opcion == null) {
                         break;
                     }
 
-                    // Permitir desconexion completa
                     if ("exit".equalsIgnoreCase(opcion.trim())) {
                         salida.println("Hasta luego! Desconectando...");
                         conectado = false;
@@ -88,7 +93,6 @@ public class Servidor {
                     usuarioActual = null;
 
                     if ("2".equals(opcion)) {
-                        // Registro de usuario
                         salida.println("Introduce un nombre de usuario:");
                         usuarioActual = entrada.readLine();
 
@@ -98,7 +102,7 @@ public class Servidor {
 
                         if (existeUsuario(usuarioActual)) {
                             salida.println("El usuario ya existe. Intenta con otro nombre.");
-                            continue; // Volver al menu principal
+                            continue;
                         }
 
                         salida.println("Introduce una contrasena:");
@@ -112,7 +116,6 @@ public class Servidor {
                         salida.println("Registro exitoso. Ahora puedes iniciar sesion.");
 
                     } else if ("1".equals(opcion)) {
-                        // Inicio de sesion
                         salida.println("Introduce tu usuario:");
                         usuarioActual = entrada.readLine();
 
@@ -131,12 +134,10 @@ public class Servidor {
                             salida.println("Inicio de sesion exitoso. Bienvenido " + usuarioActual + "!");
                             System.out.println("Usuario " + usuarioActual + " ha iniciado sesion");
 
-                            // Agregar usuario a la lista de conectados
                             synchronized (usuariosConectados) {
                                 usuariosConectados.put(usuarioActual, this);
                             }
 
-                            // Notificacion de mensajes pendientes
                             List<String> mensajesPendientes = leerInbox(usuarioActual);
                             if (!mensajesPendientes.isEmpty()) {
                                 salida.println("Tienes " + mensajesPendientes.size() + " mensaje(s) en tu bandeja.");
@@ -144,18 +145,15 @@ public class Servidor {
                                 salida.println("No tienes mensajes nuevos.");
                             }
 
-                            // Mostrar menu y manejar la sesion del usuario
                             mostrarMenu(usuarioActual, entrada, salida);
 
-                            // Remover usuario de la lista de conectados
                             synchronized (usuariosConectados) {
                                 usuariosConectados.remove(usuarioActual);
                             }
 
-                            // Despues de cerrar sesion, volver al menu principal
                             System.out.println("Usuario " + usuarioActual + " ha cerrado sesion");
                             salida.println("Sesion cerrada. Puedes iniciar otra sesion o registrar un nuevo usuario.");
-                            usuarioActual = null; // Limpiar usuario actual
+                            usuarioActual = null;
 
                         } else {
                             salida.println("Usuario o contrasena incorrectos.");
@@ -204,22 +202,13 @@ public class Servidor {
 
                 String opcion = entrada.readLine();
 
-                // Si entrada es null, el cliente se desconecto
                 if (opcion == null) {
                     throw new IOException("Cliente desconectado");
                 }
 
                 switch (opcion) {
                     case "1":
-                        List<String> mensajes = leerInbox(usuario);
-                        if (mensajes.isEmpty()) {
-                            salida.println("No tienes mensajes.");
-                        } else {
-                            salida.println("Tus mensajes:");
-                            for (int i = 0; i < mensajes.size(); i++) {
-                                salida.println(i + ") " + mensajes.get(i));
-                            }
-                        }
+                        verBandejaConPaginacion(usuario, entrada, salida);
                         break;
 
                     case "2":
@@ -398,7 +387,7 @@ public class Servidor {
                         break;
 
                     default:
-                        salida.println("Opcion no valida.");
+                        salida.println("Opcion no valida. Selecciona un numero dentro del intervalo de opciones.");
                 }
             }
         }
@@ -408,7 +397,6 @@ public class Servidor {
             salida.println("FIN_SUBMENU");
         }
 
-        // ========================= JUEGO =========================
         private void iniciarJuego(String usuario, BufferedReader entrada, PrintWriter salida) throws IOException {
             Random random = new Random();
             int numeroSecreto = random.nextInt(10) + 1;
@@ -445,7 +433,6 @@ public class Servidor {
             salida.println("Regresando al menu principal...");
         }
 
-        // ========================= USUARIOS =========================
         private void guardarUsuario(String usuario, String contrasena) {
             String usuarioLimpio = usuario.trim();
             String contrasenaLimpia = contrasena.trim();
@@ -486,7 +473,214 @@ public class Servidor {
         }
     }
 
-    // ========================= BANDEJA DE ENTRADA =========================
+    private static String extraerRemitente(String mensaje) {
+        int inicio = mensaje.indexOf("[De ");
+        if (inicio == -1) {
+            return "Desconocido";
+        }
+        inicio += 4;
+        int fin = mensaje.indexOf("]", inicio);
+        if (fin == -1) {
+            return "Desconocido";
+        }
+        return mensaje.substring(inicio, fin).trim();
+    }
+
+    private static Map<String, List<String>> obtenerMensajesPorRemitente(String usuario) {
+        Map<String, List<String>> mensajesPorRemitente = new LinkedHashMap<>();
+        List<String> mensajes = leerInbox(usuario);
+        
+        for (String mensaje : mensajes) {
+            String remitente = extraerRemitente(mensaje);
+            mensajesPorRemitente.computeIfAbsent(remitente, k -> new ArrayList<>()).add(mensaje);
+        }
+        
+        return mensajesPorRemitente;
+    }
+
+    private static void verBandejaConPaginacion(String usuario, BufferedReader entrada, PrintWriter salida) throws IOException {
+        Map<String, List<String>> mensajesPorRemitente = obtenerMensajesPorRemitente(usuario);
+        
+        if (mensajesPorRemitente.isEmpty()) {
+            salida.println("No tienes mensajes.");
+            return;
+        }
+        
+        salida.println("\n=== TIENES MENSAJES DE ===");
+        List<String> remitentes = new ArrayList<>(mensajesPorRemitente.keySet());
+        for (int i = 0; i < remitentes.size(); i++) {
+            String remitente = remitentes.get(i);
+            int cantidad = mensajesPorRemitente.get(remitente).size();
+            salida.println(i + ") " + remitente + " (" + cantidad + " mensaje" + (cantidad > 1 ? "s" : "") + ")");
+        }
+        salida.println(remitentes.size() + ") Volver al menu principal");
+        salida.println("Selecciona el numero del usuario para ver sus mensajes:");
+        
+        String seleccion = entrada.readLine();
+        if (seleccion == null) {
+            throw new IOException("Cliente desconectado");
+        }
+        
+        try {
+            int idx = Integer.parseInt(seleccion);
+            
+            if (idx == remitentes.size()) {
+                return;
+            }
+            
+            if (idx < 0 || idx >= remitentes.size()) {
+                salida.println("Seleccion invalida.");
+                return;
+            }
+            
+            String remitenteSeleccionado = remitentes.get(idx);
+            List<String> mensajesDelRemitente = mensajesPorRemitente.get(remitenteSeleccionado);
+            
+            mostrarMensajesPaginados(usuario, remitenteSeleccionado, mensajesDelRemitente, entrada, salida);
+            
+        } catch (NumberFormatException e) {
+            salida.println("Entrada invalida.");
+        }
+    }
+
+    private static void mostrarMensajesPaginados(String usuario, String remitente, List<String> mensajes, 
+                                                BufferedReader entrada, PrintWriter salida) throws IOException {
+        final int MENSAJES_POR_PAGINA = 5;
+        int totalPaginas = (int) Math.ceil((double) mensajes.size() / MENSAJES_POR_PAGINA);
+        int paginaActual = 0;
+        
+        while (true) {
+            int inicio = paginaActual * MENSAJES_POR_PAGINA;
+            int fin = Math.min(inicio + MENSAJES_POR_PAGINA, mensajes.size());
+            
+            salida.println("\n=== MENSAJES DE " + remitente.toUpperCase() + " ===");
+            salida.println("Pagina " + (paginaActual + 1) + " de " + totalPaginas);
+            salida.println("Mostrando mensajes " + (inicio + 1) + "-" + fin + " de " + mensajes.size());
+            salida.println("----------------------------------------");
+            
+            for (int i = inicio; i < fin; i++) {
+                salida.println("[" + i + "] " + mensajes.get(i));
+            }
+            
+            salida.println("\n--- OPCIONES ---");
+            if (paginaActual > 0) {
+                salida.println("A) Pagina anterior");
+            }
+            if (paginaActual < totalPaginas - 1) {
+                salida.println("S) Pagina siguiente");
+            }
+            salida.println("B) Borrar un mensaje de esta conversacion");
+            salida.println("V) Volver a la lista de remitentes");
+            salida.println("Elige opcion:");
+            
+            String opcion = entrada.readLine();
+            if (opcion == null) {
+                throw new IOException("Cliente desconectado");
+            }
+            
+            opcion = opcion.trim().toLowerCase();
+            
+            switch (opcion) {
+                case "a":
+                case "anterior":
+                    if (paginaActual > 0) {
+                        paginaActual--;
+                    } else {
+                        salida.println("Ya estas en la primera pagina.");
+                    }
+                    break;
+                    
+                case "s":
+                case "siguiente":
+                    if (paginaActual < totalPaginas - 1) {
+                        paginaActual++;
+                    } else {
+                        salida.println("Ya estas en la ultima pagina.");
+                    }
+                    break;
+                    
+                case "b":
+                case "borrar":
+                    salida.println("Escribe el numero del mensaje a borrar [" + inicio + "-" + (fin - 1) + "]:");
+                    String numStr = entrada.readLine();
+                    if (numStr == null) {
+                        throw new IOException("Cliente desconectado");
+                    }
+                    
+                    try {
+                        int numMensaje = Integer.parseInt(numStr.trim());
+                        if (numMensaje < inicio || numMensaje >= fin) {
+                            salida.println("Numero fuera del rango actual.");
+                        } else {
+                            String mensajeABorrar = mensajes.get(numMensaje);
+                            if (borrarMensajeEspecifico(usuario, mensajeABorrar)) {
+                                salida.println("Mensaje borrado con exito.");
+                                mensajes.remove(numMensaje);
+                                
+                                totalPaginas = (int) Math.ceil((double) mensajes.size() / MENSAJES_POR_PAGINA);
+                                if (paginaActual >= totalPaginas && totalPaginas > 0) {
+                                    paginaActual = totalPaginas - 1;
+                                }
+                                
+                                if (mensajes.isEmpty()) {
+                                    salida.println("No quedan mas mensajes de este usuario.");
+                                    return;
+                                }
+                            } else {
+                                salida.println("Error al borrar el mensaje.");
+                            }
+                        }
+                    } catch (NumberFormatException e) {
+                        salida.println("Entrada invalida.");
+                    }
+                    break;
+                    
+                case "v":
+                case "volver":
+                    return;
+                    
+                default:
+                    salida.println("Opcion no valida.");
+            }
+        }
+    }
+
+    private static boolean borrarMensajeEspecifico(String usuario, String mensajeABorrar) {
+        File f = archivoInbox(usuario);
+        if (!f.exists()) {
+            return false;
+        }
+
+        try {
+            List<String> mensajes = new ArrayList<>();
+            boolean eliminado = false;
+            
+            try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+                String linea;
+                while ((linea = br.readLine()) != null) {
+                    if (!linea.equals(mensajeABorrar)) {
+                        mensajes.add(linea);
+                    } else {
+                        eliminado = true;
+                    }
+                }
+            }
+
+            if (eliminado) {
+                try (PrintWriter pw = new PrintWriter(new FileWriter(f))) {
+                    for (String msg : mensajes) {
+                        pw.println(msg);
+                    }
+                }
+            }
+
+            return eliminado;
+        } catch (IOException e) {
+            System.out.println("Error al borrar mensaje de " + usuario + ": " + e.getMessage());
+            return false;
+        }
+    }
+
     private static synchronized void enviarMensajeASingle(String usuario, String texto) {
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(archivoInbox(usuario), true))) {
             bw.write(new Date() + " | " + texto);
@@ -642,7 +836,6 @@ public class Servidor {
         return usuarios;
     }
 
-    // ========================= FUNCION PARA ELIMINAR USUARIO =========================
     private static boolean eliminarUsuario(String usuario) {
         if (!existeUsuario(usuario)) {
             return false;
@@ -721,7 +914,6 @@ public class Servidor {
         }
     }
 
-    // ========================= FUNCIONES DE BLOQUEO =========================
     private static File archivoBloqueos(String usuario) {
         return new File(BLOQUEOS_DIR, usuario + ".txt");
     }
@@ -852,7 +1044,6 @@ public class Servidor {
         }
     }
 
-    // ========================= FUNCIONES PARA COMPARTIR ARCHIVOS =========================
     private static void solicitarListadoArchivos(String solicitante, String objetivo, PrintWriter salidaSolicitante) {
         ManejadorCliente manejadorObjetivo;
         synchronized (usuariosConectados) {
@@ -912,7 +1103,6 @@ public class Servidor {
         }
     }
 
-    // ========================= COMANDOS DE CONSOLA DEL SERVIDOR =========================
     private static void manejarComandoServidor(String comando) {
         switch (comando.toLowerCase().trim()) {
             case "/help":
